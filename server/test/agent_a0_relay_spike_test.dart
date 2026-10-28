@@ -40,7 +40,9 @@ class ScriptedRelay extends Relay {
   ScriptedRelay(CallLedger ledger, this.replies)
     : super(
         AssistantModelClient(
-          endpoint: Uri.parse('https://model.example.invalid/v1/chat/completions'),
+          endpoint: Uri.parse(
+            'https://model.example.invalid/v1/chat/completions',
+          ),
           apiKey: 'synthetic-not-a-credential',
         ),
         ledger,
@@ -114,7 +116,9 @@ void main() {
 
   test('only the exact existing HTTPS endpoint is allowed', () {
     expect(
-      allowedEndpoint(Uri.parse('https://model.example.invalid/v1/chat/completions')),
+      allowedEndpoint(
+        Uri.parse('https://model.example.invalid/v1/chat/completions'),
+      ),
       true,
     );
     for (final url in [
