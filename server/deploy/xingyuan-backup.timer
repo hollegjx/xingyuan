@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Xingyuan private backup
+
+[Timer]
+OnCalendar=*-*-* 19:30:00 UTC
+RandomizedDelaySec=10min
+Persistent=true
+Unit=xingyuan-backup.service
+
+[Install]
+WantedBy=timers.target

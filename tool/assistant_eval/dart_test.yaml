@@ -1,0 +1,3 @@
+# CLI tests invoke dart run in this package and share native build output.
+# Keep suites sequential; preserve test timeouts and do not retry failures.
+concurrency: 1

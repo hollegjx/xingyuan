@@ -1,0 +1,90 @@
+name: Flutter checks
+
+on:
+  push:
+    branches: [main, "codex/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    # Cold schema generation and the complete test suite share this job.
+    timeout-minutes: 40
+    env:
+      FLUTTER_VERSION: "3.47.6"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Install Flutter
+        run: |
+          git clone --depth 1 --branch "$FLUTTER_VERSION" \
+            https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" config --no-analytics
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Check public release contents
+        run: dart run tool/check_public_release.dart
+
+      - name: Shared assistant core
+        working-directory: packages/xingyuan_core
+        run: |
+          dart pub get --enforce-lockfile
+          dart format --output=none --set-exit-if-changed lib test bin
+          dart analyze --fatal-infos
+          dart test
+
+      - name: Assistant model adapter
+        working-directory: server
+        run: |
+          dart pub get --enforce-lockfile
+          dart format --output=none --set-exit-if-changed lib test tool bin
+          dart analyze --fatal-infos
+          dart build cli --target=bin/backup.dart --output=build/backup
+          XINGYUAN_BACKUP_EXECUTABLE="$PWD/build/backup/bundle/bin/backup" dart test
+          sh -n deploy/export-companion-backup.sh
+          dart build cli --target=bin/server.dart --output=build/server
+          dart run tool/pairing_process_probe.dart "$PWD/build/server/bundle/bin/server"
+
+      - name: Assistant evaluation harness (offline only)
+        working-directory: tool/assistant_eval
+        run: |
+          dart pub get --enforce-lockfile
+          dart analyze --fatal-infos
+          dart test
+
+      - name: Verify generated database code and schema
+        run: |
+          dart run build_runner build
+          dart run drift_dev make-migrations --no-test
+          dart run drift_dev schema generate drift_schemas/app_database test/drift/generated
+          git diff --exit-code -- lib/data/local drift_schemas test/drift/generated pubspec.lock
+
+      - name: Check formatting
+        run: dart format --output=none --set-exit-if-changed lib test integration_test tool
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      - name: Calendar labels across DST
+        run: TZ=America/Los_Angeles flutter test test/moment_label_test.dart
+
+      - name: Cloud verification status
+        run: |
+          echo "NOT RUN: hosted migrations, real auth, RLS and device-network gates."
+          echo "Local configuration tests do not satisfy G3 or S14/S18."
+          echo "NOT RUN: live AI planning and iOS gates; model credentials are not configured in CI."
+          echo "NOT RUN: native iOS layout PNG export; CI runs interaction checks only."

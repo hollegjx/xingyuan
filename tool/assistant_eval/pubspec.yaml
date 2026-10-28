@@ -1,0 +1,21 @@
+name: xingyuan_assistant_eval
+description: Synthetic live-model evaluation for the Xingyuan assistant gate.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.13.5
+
+dependencies:
+  characters: 1.4.1
+  crypto: 3.0.7
+  sqlite3: 3.5.2
+  xingyuan_core:
+    path: ../../packages/xingyuan_core
+  xingyuan_server:
+    path: ../../server
+
+dev_dependencies:
+  test: ^1.26.3
+  lints: 6.1.0
+  yaml: 3.1.4

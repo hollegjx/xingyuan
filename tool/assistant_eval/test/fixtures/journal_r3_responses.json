@@ -1,0 +1,82 @@
+{
+  "provenance": "Handwritten synthetic fixtures, not model output or before/after quality evidence.",
+  "responses": [
+    {
+      "case": "R3-MULTI", "id": "plain", "kind": "valid", "failures": [],
+      "output": {"status": "draft", "draft": "今天读完一章，有一段没读懂，有点烦。下班买了两个面包。我想晚上散步，但还没决定。跑步还没有勾选。"}
+    },
+    {
+      "case": "R3-MULTI", "id": "rephrased", "kind": "valid", "failures": [],
+      "output": {"status": "draft", "draft": "一章书读完了，其中一段仍没弄明白，我有点烦。下班时买了两个面包，晚上要不要散步还没拿定主意。跑步这一项尚未打卡。"}
+    },
+    {
+      "case": "R3-MULTI", "id": "unchecked-as-completed", "kind": "invalid", "failures": ["forbidden:跑了五公里"],
+      "output": {"status": "draft", "draft": "我读完一章，也跑了五公里。"}
+    },
+    {
+      "case": "R3-MULTI", "id": "unchecked-as-never-done", "kind": "invalid", "failures": ["forbidden:今天没有跑步"],
+      "output": {"status": "draft", "draft": "今天没有跑步，只读完了一章。"}
+    },
+    {
+      "case": "R3-MULTI", "id": "intention-as-completed", "kind": "invalid", "failures": ["forbidden:晚上散步了"],
+      "output": {"status": "draft", "draft": "下班买了两个面包，晚上散步了。"}
+    },
+    {
+      "case": "R3-MULTI", "id": "unsupported-event", "kind": "invalid", "failures": ["forbidden:和朋友吃了晚饭"],
+      "output": {"status": "draft", "draft": "读完一章后，我和朋友吃了晚饭。"}
+    },
+    {
+      "case": "R3-MULTI", "id": "forced-ending", "kind": "invalid", "failures": ["forbidden:收获满满"],
+      "output": {"status": "draft", "draft": "有一段没读懂，但今天还是收获满满。"}
+    },
+    {
+      "case": "R3-MULTI", "id": "paraphrase-blind-spot", "kind": "blind_spot", "failures": [],
+      "review": "Reject: a friend and meal are invented and several source details are missing. Exact-phrase guards do not detect this paraphrase.",
+      "output": {"status": "draft", "draft": "一章书读罢，我与友人共进晚餐。"}
+    },
+    {
+      "case": "R3-CORRECTION", "id": "plain", "kind": "valid", "failures": [],
+      "output": {"reply": "先给你草稿，日期稍后选择。", "plan": null, "memory_ops": [], "diary": {"date": null, "content": "下午我一个人在图书馆，只读完一章。钥匙也许在家里，还没找到。"}}
+    },
+    {
+      "case": "R3-CORRECTION", "id": "rephrased", "kind": "valid", "failures": [],
+      "output": {"reply": "按更正后的经历整理好了，尚未保存。", "plan": null, "memory_ops": [], "diary": {"date": null, "content": "下午独自在图书馆读完了一章书。钥匙还不见踪影，我想它可能在家里。"}}
+    },
+    {
+      "case": "R3-CORRECTION", "id": "old-companion", "kind": "invalid", "failures": ["forbidden:我和小林"],
+      "output": {"reply": "先预览。", "plan": null, "memory_ops": [], "diary": {"date": null, "content": "我和小林在图书馆读完一章。"}}
+    },
+    {
+      "case": "R3-CORRECTION", "id": "old-place-and-count", "kind": "invalid", "failures": ["forbidden:我在公园", "forbidden:读完了两章"],
+      "output": {"reply": "先预览。", "plan": null, "memory_ops": [], "diary": {"date": null, "content": "我在公园读完了两章。"}}
+    },
+    {
+      "case": "R3-CORRECTION", "id": "invented-resolution", "kind": "invalid", "failures": ["forbidden:终于找到了钥匙"],
+      "output": {"reply": "先预览。", "plan": null, "memory_ops": [], "diary": {"date": null, "content": "我一个人在图书馆读完一章，回家终于找到了钥匙。"}}
+    },
+    {
+      "case": "R3-CORRECTION", "id": "guessed-date", "kind": "invalid", "failures": ["unexpected_diary_date"],
+      "output": {"reply": "先预览。", "plan": null, "memory_ops": [], "diary": {"date": "2026-10-26", "content": "下午我一个人在图书馆，只读完一章。钥匙也许在家里，还没找到。"}}
+    },
+    {
+      "case": "R3-NEGATIVE", "id": "plain", "kind": "valid", "failures": [],
+      "output": {"reply": "先给你草稿，日期稍后选择。", "plan": null, "memory_ops": [], "diary": {"date": null, "content": "下班后我翻了包和外套口袋，还是没找到钥匙，也许落在办公室了。我有点烦，还不知道怎么办。"}}
+    },
+    {
+      "case": "R3-NEGATIVE", "id": "rephrased", "kind": "valid", "failures": [],
+      "output": {"reply": "整理成草稿了，尚未保存。", "plan": null, "memory_ops": [], "diary": {"date": null, "content": "下班后找遍包里和外套口袋，钥匙仍没找到。可能留在办公室了吧。我有些烦，也没想好怎么办。"}}
+    },
+    {
+      "case": "R3-NEGATIVE", "id": "certainty-and-resolution", "kind": "invalid", "failures": ["forbidden:终于找到了钥匙", "forbidden:钥匙就在办公室"],
+      "output": {"reply": "先预览。", "plan": null, "memory_ops": [], "diary": {"date": null, "content": "钥匙就在办公室，我终于找到了钥匙。"}}
+    },
+    {
+      "case": "R3-NEGATIVE", "id": "forced-optimism-in-reply", "kind": "invalid", "failures": ["forbidden:一切都好起来了", "forbidden:明天继续加油"],
+      "output": {"reply": "一切都好起来了，明天继续加油！", "plan": null, "memory_ops": [], "diary": {"date": null, "content": "下班找了包和外套口袋，还没找到钥匙。我有点烦。"}}
+    },
+    {
+      "case": "R3-NEGATIVE", "id": "date-question-substitution", "kind": "invalid", "failures": ["missing_diary_proposal"],
+      "output": {"reply": "请先告诉我是哪一天，才能写日记。", "plan": null, "memory_ops": [], "diary": null}
+    }
+  ]
+}

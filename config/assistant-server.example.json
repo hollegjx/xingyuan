@@ -1,0 +1,12 @@
+{
+  "base_url": "https://model.example.invalid/v1",
+  "model": "gpt-6-luna",
+  "keychain_service": "habit-checkin-planning-dev",
+  "keychain_account": "EXISTING-KEYCHAIN-ACCOUNT",
+  "port": 8788,
+  "devices_file": "/absolute/private/devices.json",
+  "companion_database": "/absolute/private/companion-data.db",
+  "companion_objects": "/absolute/private/companion-objects",
+  "reasoning": "none",
+  "max_completion_tokens": 4000
+}

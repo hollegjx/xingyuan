@@ -1,0 +1,8 @@
+# CLI metadata only. This does not reconfigure the hosted Auth/SMTP service.
+project_id = "habit-checkin"
+
+[db.migrations]
+enabled = true
+
+[db.seed]
+enabled = false

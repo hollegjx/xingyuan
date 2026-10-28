@@ -1,0 +1,23 @@
+{
+  "request": {
+    "protocol": "xingyuan.assistant.v1",
+    "request_id": "fixture-1",
+    "now": {"date": "2026-10-20", "time": "21:00", "weekday": 2, "time_zone": "Asia/Shanghai"},
+    "summary": null,
+    "messages": [{"role": "user", "text": "明天安排读书半小时，记住我喜欢晚上读书"}],
+    "memories": [{"id": "m1", "category": "作息", "text": "工作日晚上有空", "expires_on": null}],
+    "schedule": [{"date": "2026-10-21", "items": [{"title": "健身", "kind": "habit", "time": "19:30", "minutes": 60, "done": false}]}],
+    "stats": [{"title": "健身", "kind": "habit", "scheduled_14d": 6, "done_14d": 4}],
+    "settings": {"auto_memory": true}
+  },
+  "response": {
+    "protocol": "xingyuan.assistant.v1",
+    "request_id": "fixture-1",
+    "reply": "建议明晚九点读书半小时，确认后才会创建。习惯从创建当天开始。",
+    "plan": {
+      "tasks": [{"title": "读书", "date": "2026-10-21", "time": "21:00", "minutes": 30}],
+      "habits": [{"title": "跑步", "start_date": "2026-10-20", "weekdays": [1, 3, 5], "time": "07:00", "minutes": 30}]
+    },
+    "memory_ops": [{"op": "update", "id": "m1", "category": "偏好", "text": "喜欢晚上读书", "expires_on": null}]
+  }
+}

@@ -1,0 +1,75 @@
+import 'dart:io';
+
+import 'package:test/test.dart';
+
+void main() {
+  final template = File('deploy/Caddyfile').readAsStringSync();
+
+  test('body-limit mapping requires the strict internal error signature', () {
+    expect(template, contains(_bodyLimitHandler));
+    expect(template, endsWith('$_bodyLimitHandler}\n'));
+  });
+
+  test(
+    'error mapping leaves every existing deployment directive unchanged',
+    () {
+      expect(template.replaceFirst(_bodyLimitHandler, ''), _originalTemplate);
+    },
+  );
+}
+
+// Static contracts only; the deployed Caddy version must execute this template
+// in an isolated loopback instance before any site configuration is reloaded.
+const _bodyLimitHandler = '''
+    handle_errors {
+        @bodyTooLarge expression `{http.error.status_code} == 413 || ({http.error.status_code} == 502 && {http.error.message}.contains("requestbody.errorWrapper.Read") && {http.error.message}.contains("HTTP 413: http: request body too large"))`
+        header @bodyTooLarge {
+            Content-Type "application/json"
+            Cache-Control "no-store"
+            X-Content-Type-Options "nosniff"
+        }
+        respond @bodyTooLarge `{"error":"request_too_large"}` 413
+    }
+''';
+
+const _originalTemplate = '''
+{
+    admin localhost:2019
+    log default {
+        format filter {
+            wrap json
+            fields {
+                request delete
+            }
+        }
+    }
+    servers {
+        max_header_size 16KB
+        protocols h1 h2
+        timeouts {
+            read_header 10s
+            idle 2m
+        }
+    }
+}
+
+assistant.example.invalid {
+    @photoUpload path /v1/companion/photos/upload
+    @ordinary not path /v1/companion/photos/upload
+    request_body @photoUpload {
+        max_size 2800000
+    }
+    request_body @ordinary {
+        max_size 64KB
+    }
+    reverse_proxy 127.0.0.1:8788 {
+        transport http {
+            response_header_timeout 85s
+        }
+    }
+    header {
+        Cache-Control "no-store"
+        X-Content-Type-Options "nosniff"
+    }
+}
+''';

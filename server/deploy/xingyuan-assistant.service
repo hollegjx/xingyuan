@@ -1,0 +1,27 @@
+[Unit]
+Description=Xingyuan private assistant
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=xingyuan
+Group=xingyuan
+WorkingDirectory=/opt/xingyuan/current
+ExecStart=/opt/xingyuan/current/server/build/server/bundle/bin/server --config /etc/xingyuan/assistant-server.json
+Restart=on-failure
+RestartSec=3
+UMask=0077
+StateDirectory=xingyuan
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=512M
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+{
+  "base_url": "https://YOUR-SERVER.example/v1",
+  "model": "gpt-6-luna",
+  "keychain_service": "habit-checkin-planning-dev",
+  "keychain_account": "YOUR-SERVER.example",
+  "gateway_token": "REPLACE_WITH_A_RANDOM_LOCAL_SESSION_TOKEN",
+  "port": 8766,
+  "max_calls": 0
+}
