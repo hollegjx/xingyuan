@@ -29,6 +29,7 @@ class GoalTile extends ConsumerWidget {
     required this.view,
     required this.onOpen,
     this.interactive = false,
+    this.dayShown = false,
     this.status,
     super.key,
   });
@@ -36,6 +37,9 @@ class GoalTile extends ConsumerWidget {
   final GoalDay view;
   final VoidCallback onOpen;
   final bool interactive;
+
+  /// The list around this tile already names [GoalDay.day].
+  final bool dayShown;
   final String? status;
 
   @override
@@ -56,6 +60,19 @@ class GoalTile extends ConsumerWidget {
             ? null
             : dayStatusLabel(view.status));
     final small = theme.textTheme.bodySmall?.copyWith(color: xy.muted);
+    // Where the day is already on screen, a one-off planned for that day
+    // needs no date, only its time.
+    final timing = view.schedule.timing.label;
+    final schedule =
+        (interactive || dayShown) &&
+            view.goal.kind == GoalKind.single &&
+            view.schedule.plannedDay == view.day
+        ? (timing.isNotEmpty
+              ? timing
+              : interactive
+              ? '今天'
+              : '单次')
+        : scheduleLabel(view.goal.kind, view.schedule);
     return InkWell(
       onTap: onOpen,
       child: Padding(
@@ -107,10 +124,7 @@ class GoalTile extends ConsumerWidget {
                     Wrap(
                       spacing: 8,
                       children: [
-                        Text(
-                          scheduleLabel(view.goal.kind, view.schedule),
-                          style: small,
-                        ),
+                        Text(schedule, style: small),
                         if (completedAt != null)
                           Text(
                             completedAt,
@@ -130,12 +144,24 @@ class GoalTile extends ConsumerWidget {
                       day: view.day,
                       title: view.title,
                       editable: !view.goal.isArchived,
-                      showEmpty: interactive && !view.goal.isArchived,
                     ),
                   ],
                 ),
               ),
             ),
+            if (interactive && !view.goal.isArchived)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: DayRecordPreview(
+                  goalId: view.goal.id,
+                  day: view.day,
+                  title: view.title,
+                  editable: true,
+                  showEmpty: true,
+                  showSaved: false,
+                  iconOnly: true,
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.only(top: 2),
               child: IconButton(

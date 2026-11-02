@@ -1,8 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-/// 星愿 design tokens, built on the iOS system palette. Gold is reserved for
-/// stars; text never uses it.
+/// 星愿 design tokens (雾青纸感). One accent, misty teal; gold is reserved
+/// for stars and text never uses it.
 @immutable
 class XyColors extends ThemeExtension<XyColors> {
   const XyColors({
@@ -61,48 +61,50 @@ class XyColors extends ThemeExtension<XyColors> {
   final Color warning;
   final Color warningSoft;
 
+  // 雾青纸感: a quiet paper ground, one misty-teal accent, gold only for
+  // stars. The "sky" is a pale dawn wash, not a night band.
   static const light = XyColors(
-    sky: Color(0xFF232750),
-    skyDeep: Color(0xFF12142C),
-    onSky: Color(0xFFF5F4FF),
-    onSkyMuted: Color(0xFFB9BBE0),
-    skyLine: Color(0xFF3A3F72),
-    star: Color(0xFFF7B32B),
-    partner: Color(0xFFFF7A6B),
-    partnerText: Color(0xFFC4402F),
-    partnerSoft: Color(0xFFFFEDEA),
-    muted: Color(0xFF6E6E73),
-    faint: Color(0xFFAEAEB2),
-    line: Color(0xFFD8D8DC),
+    sky: Color(0xFFEFF4F1),
+    skyDeep: Color(0xFFE4ECE8),
+    onSky: Color(0xFF1E2925),
+    onSkyMuted: Color(0xFF5F6B66),
+    skyLine: Color(0xFFD5DED9),
+    star: Color(0xFFD9A441),
+    partner: Color(0xFFE58B7B),
+    partnerText: Color(0xFFA9503F),
+    partnerSoft: Color(0xFFFBEDE9),
+    muted: Color(0xFF66716C),
+    faint: Color(0xFFA3ACA7),
+    line: Color(0xFFE3E7E1),
     card: Color(0xFFFFFFFF),
-    cardSoft: Color(0xFFF4F4F7),
-    fill: Color(0xFFE9E9EE),
-    bar: Color(0xFFF9F9FB),
-    success: Color(0xFF248A3D),
-    warning: Color(0xFFC25400),
-    warningSoft: Color(0xFFFFF2E5),
+    cardSoft: Color(0xFFF3F5F1),
+    fill: Color(0xFFECEFEA),
+    bar: Color(0xFFFBFBF8),
+    success: Color(0xFF3F7D5C),
+    warning: Color(0xFFA9621B),
+    warningSoft: Color(0xFFFBF1E4),
   );
 
   static const dark = XyColors(
-    sky: Color(0xFF181A38),
-    skyDeep: Color(0xFF0A0B1C),
-    onSky: Color(0xFFF5F4FF),
-    onSkyMuted: Color(0xFFA9ABD6),
-    skyLine: Color(0xFF2E3260),
-    star: Color(0xFFFFC542),
-    partner: Color(0xFFFF8A7A),
-    partnerText: Color(0xFFFF9F92),
-    partnerSoft: Color(0xFF3A211F),
-    muted: Color(0xFF98989F),
-    faint: Color(0xFF5E5E63),
-    line: Color(0xFF38383A),
-    card: Color(0xFF1C1C1E),
-    cardSoft: Color(0xFF2C2C2E),
-    fill: Color(0xFF2C2C2E),
-    bar: Color(0xFF151517),
-    success: Color(0xFF30D158),
-    warning: Color(0xFFFF9F0A),
-    warningSoft: Color(0xFF3A2A12),
+    sky: Color(0xFF1D2724),
+    skyDeep: Color(0xFF151D1A),
+    onSky: Color(0xFFEDF1EE),
+    onSkyMuted: Color(0xFFA9B6B0),
+    skyLine: Color(0xFF2C3733),
+    star: Color(0xFFE7B95A),
+    partner: Color(0xFFF0A090),
+    partnerText: Color(0xFFF2AB9D),
+    partnerSoft: Color(0xFF3A2622),
+    muted: Color(0xFF9AA59F),
+    faint: Color(0xFF5F6A65),
+    line: Color(0xFF2A302D),
+    card: Color(0xFF1C211F),
+    cardSoft: Color(0xFF232926),
+    fill: Color(0xFF2A302D),
+    bar: Color(0xFF181C1A),
+    success: Color(0xFF7FC29B),
+    warning: Color(0xFFE0A15A),
+    warningSoft: Color(0xFF33281A),
   );
 
   @override
@@ -191,25 +193,28 @@ extension XyTheme on BuildContext {
 }
 
 /// Inset-grouped sections and cards.
-const xyCardRadius = 14.0;
+const xyCardRadius = 20.0;
 
 /// Prominent buttons.
-const xyButtonRadius = 12.0;
+const xyButtonRadius = 14.0;
+
+/// The bundled serif (Noto Serif SC subset) for titles and written words.
+const xySerif = 'XySerif';
 
 ThemeData buildXyTheme(Brightness brightness) {
   final dark = brightness == Brightness.dark;
   final xy = dark ? XyColors.dark : XyColors.light;
-  final background = dark ? const Color(0xFF000000) : const Color(0xFFF2F2F7);
-  final ink = dark ? const Color(0xFFF5F5F7) : const Color(0xFF111114);
-  final primary = dark ? const Color(0xFF8E8BFF) : const Color(0xFF5856D6);
-  const onPrimary = Colors.white;
+  final background = dark ? const Color(0xFF141816) : const Color(0xFFF5F6F2);
+  final ink = dark ? const Color(0xFFEDF1EE) : const Color(0xFF1E2925);
+  final primary = dark ? const Color(0xFF8DBBAE) : const Color(0xFF4E7D72);
+  final onPrimary = dark ? const Color(0xFF10201B) : Colors.white;
   final primaryContainer = dark
-      ? const Color(0xFF26254F)
-      : const Color(0xFFEAEAFB);
+      ? const Color(0xFF24332F)
+      : const Color(0xFFE6EFEC);
   final onPrimaryContainer = dark
-      ? const Color(0xFFDCDBFF)
-      : const Color(0xFF2E2C8F);
-  final error = dark ? const Color(0xFFFF453A) : const Color(0xFFE0352B);
+      ? const Color(0xFFCFE5DE)
+      : const Color(0xFF2D4F47);
+  final error = dark ? const Color(0xFFFF7A6E) : const Color(0xFFC0443A);
   final scheme = ColorScheme(
     brightness: brightness,
     primary: primary,
@@ -226,8 +231,8 @@ ThemeData buildXyTheme(Brightness brightness) {
     onTertiary: const Color(0xFF2A1F05),
     error: error,
     onError: Colors.white,
-    errorContainer: dark ? const Color(0xFF3B1A18) : const Color(0xFFFFECEA),
-    onErrorContainer: dark ? const Color(0xFFFFB4AB) : const Color(0xFF8C1D14),
+    errorContainer: dark ? const Color(0xFF3A201D) : const Color(0xFFFBEBE8),
+    onErrorContainer: dark ? const Color(0xFFFFB4AB) : const Color(0xFF7E271F),
     surface: background,
     onSurface: ink,
     onSurfaceVariant: xy.muted,
@@ -238,9 +243,9 @@ ThemeData buildXyTheme(Brightness brightness) {
     surfaceContainerHighest: xy.fill,
     outline: xy.faint,
     outlineVariant: xy.line,
-    inverseSurface: dark ? const Color(0xFFF5F5F7) : const Color(0xFF1C1C1E),
-    onInverseSurface: dark ? const Color(0xFF111114) : const Color(0xFFF5F5F7),
-    inversePrimary: dark ? const Color(0xFF5856D6) : const Color(0xFFB9B7FF),
+    inverseSurface: dark ? const Color(0xFFEDF1EE) : const Color(0xFF1E2925),
+    onInverseSurface: dark ? const Color(0xFF141816) : const Color(0xFFF5F6F2),
+    inversePrimary: dark ? const Color(0xFF4E7D72) : const Color(0xFFA9CCC2),
     shadow: Colors.black,
     scrim: Colors.black,
     surfaceTint: Colors.transparent,
@@ -260,44 +265,54 @@ ThemeData buildXyTheme(Brightness brightness) {
     FontWeight weight, {
     double height = 1.35,
     double spacing = 0,
+    bool serif = false,
   }) => style?.copyWith(
     fontSize: size,
     fontWeight: weight,
     letterSpacing: spacing,
     height: height,
+    fontFamily: serif ? xySerif : null,
   );
   final text = base.textTheme;
   final textTheme = text
       .copyWith(
+        // Titles are set in the serif, like headings on paper; controls and
+        // running UI text stay in the system sans (PingFang on iOS).
         displaySmall: tune(
           text.displaySmall,
-          34,
-          FontWeight.w700,
-          height: 1.2,
-          spacing: -0.4,
+          32,
+          FontWeight.w600,
+          height: 1.25,
+          serif: true,
         ),
         headlineLarge: tune(
           text.headlineLarge,
-          34,
-          FontWeight.w700,
-          height: 1.2,
-          spacing: -0.4,
+          32,
+          FontWeight.w600,
+          height: 1.25,
+          serif: true,
         ),
         headlineMedium: tune(
           text.headlineMedium,
-          28,
-          FontWeight.w700,
-          height: 1.25,
-          spacing: -0.3,
+          26,
+          FontWeight.w600,
+          height: 1.3,
+          serif: true,
         ),
         headlineSmall: tune(
           text.headlineSmall,
           22,
-          FontWeight.w700,
-          height: 1.3,
-          spacing: -0.2,
+          FontWeight.w600,
+          height: 1.35,
+          serif: true,
         ),
-        titleLarge: tune(text.titleLarge, 20, FontWeight.w600, height: 1.3),
+        titleLarge: tune(
+          text.titleLarge,
+          19,
+          FontWeight.w600,
+          height: 1.35,
+          serif: true,
+        ),
         titleMedium: tune(text.titleMedium, 17, FontWeight.w600),
         titleSmall: tune(text.titleSmall, 15, FontWeight.w600),
         bodyLarge: tune(text.bodyLarge, 17, FontWeight.w400),
@@ -309,12 +324,10 @@ ThemeData buildXyTheme(Brightness brightness) {
       )
       .apply(bodyColor: ink, displayColor: ink);
 
-  final buttonShape = RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(xyButtonRadius),
-  );
+  const buttonShape = StadiumBorder();
   final fieldBorder = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(12),
-    borderSide: BorderSide.none,
+    borderRadius: BorderRadius.circular(16),
+    borderSide: BorderSide(color: xy.line),
   );
   const cupertinoTransitions = CupertinoPageTransitionsBuilder();
   return base.copyWith(
@@ -368,6 +381,7 @@ ThemeData buildXyTheme(Brightness brightness) {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(xyCardRadius),
+        side: BorderSide(color: xy.line),
       ),
     ),
     dividerTheme: DividerThemeData(color: xy.line, thickness: 0.5, space: 0.5),
@@ -387,11 +401,13 @@ ThemeData buildXyTheme(Brightness brightness) {
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: xy.card,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: fieldBorder,
       enabledBorder: fieldBorder,
       disabledBorder: fieldBorder,
-      focusedBorder: fieldBorder,
+      focusedBorder: fieldBorder.copyWith(
+        borderSide: BorderSide(color: primary.withValues(alpha: 0.6)),
+      ),
       errorBorder: fieldBorder.copyWith(
         borderSide: BorderSide(color: error, width: 1),
       ),
@@ -417,7 +433,7 @@ ThemeData buildXyTheme(Brightness brightness) {
         padding: const WidgetStatePropertyAll(
           EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         ),
-        shape: WidgetStatePropertyAll(buttonShape),
+        shape: const WidgetStatePropertyAll(buttonShape),
         elevation: const WidgetStatePropertyAll(0),
         textStyle: WidgetStatePropertyAll(
           textTheme.labelLarge?.copyWith(fontSize: 17),
@@ -443,7 +459,7 @@ ThemeData buildXyTheme(Brightness brightness) {
         padding: const WidgetStatePropertyAll(
           EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         ),
-        shape: WidgetStatePropertyAll(buttonShape),
+        shape: const WidgetStatePropertyAll(buttonShape),
         side: const WidgetStatePropertyAll(BorderSide.none),
         textStyle: WidgetStatePropertyAll(textTheme.labelLarge),
         overlayColor: const WidgetStatePropertyAll(Colors.transparent),
@@ -506,18 +522,16 @@ ThemeData buildXyTheme(Brightness brightness) {
       ),
       iconTheme: WidgetStateProperty.resolveWith(
         (states) => IconThemeData(
-          size: 25,
-          color: states.contains(WidgetState.selected) ? primary : xy.muted,
+          size: 24,
+          color: states.contains(WidgetState.selected) ? primary : xy.faint,
         ),
       ),
     ),
     switchTheme: SwitchThemeData(
       trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
-      thumbColor: const WidgetStatePropertyAll(Colors.white),
+      thumbColor: WidgetStatePropertyAll(dark ? xy.card : Colors.white),
       trackColor: WidgetStateProperty.resolveWith(
-        (states) => states.contains(WidgetState.selected)
-            ? (dark ? const Color(0xFF30D158) : const Color(0xFF34C759))
-            : xy.fill,
+        (states) => states.contains(WidgetState.selected) ? primary : xy.fill,
       ),
     ),
     checkboxTheme: CheckboxThemeData(
@@ -545,16 +559,16 @@ ThemeData buildXyTheme(Brightness brightness) {
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       elevation: 0,
-      backgroundColor: dark ? const Color(0xFF2C2C2E) : const Color(0xFF1C1C1E),
+      backgroundColor: dark ? const Color(0xFF2A302D) : const Color(0xFF1E2925),
       contentTextStyle: textTheme.bodyMedium?.copyWith(color: Colors.white),
-      actionTextColor: dark ? primary : const Color(0xFFB9B7FF),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      actionTextColor: dark ? primary : const Color(0xFFA9CCC2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: xy.card,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       titleTextStyle: textTheme.titleMedium,
       contentTextStyle: textTheme.bodyMedium,
     ),
@@ -564,14 +578,14 @@ ThemeData buildXyTheme(Brightness brightness) {
       showDragHandle: true,
       dragHandleColor: xy.faint,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
     ),
     popupMenuTheme: PopupMenuThemeData(
       color: xy.card,
       surfaceTintColor: Colors.transparent,
       elevation: 8,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
     datePickerTheme: DatePickerThemeData(
       backgroundColor: xy.card,
@@ -584,19 +598,19 @@ ThemeData buildXyTheme(Brightness brightness) {
       todayForegroundColor: WidgetStateProperty.resolveWith(
         (states) => states.contains(WidgetState.selected) ? onPrimary : primary,
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
     timePickerTheme: TimePickerThemeData(
       backgroundColor: xy.card,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(
       color: xy.muted,
       linearTrackColor: xy.fill,
     ),
     badgeTheme: BadgeThemeData(
-      backgroundColor: dark ? const Color(0xFFFF453A) : const Color(0xFFFF3B30),
-      textColor: Colors.white,
+      backgroundColor: dark ? const Color(0xFFF0A090) : const Color(0xFFD9675A),
+      textColor: dark ? const Color(0xFF2A1410) : Colors.white,
     ),
     tooltipTheme: const TooltipThemeData(
       // iOS has no long-press tooltips; the message still labels the control

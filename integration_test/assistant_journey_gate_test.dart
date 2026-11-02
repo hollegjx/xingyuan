@@ -118,7 +118,7 @@ void main() {
         final container = ProviderScope.containerOf(
           tester.element(find.byType(HabitCheckinApp)),
         );
-        await tap(find.byTooltip('规划'));
+        await tap(find.byTooltip('助手'));
         if (phase == 'write') {
           await tap(find.byKey(const ValueKey('assistant-consent-confirm')));
         }
@@ -142,7 +142,7 @@ void main() {
           await back();
           draft('TEST 返回不能清空');
           await tap(find.byTooltip('今天'));
-          await tap(find.byTooltip('规划'));
+          await tap(find.byTooltip('助手'));
           draft('TEST 返回不能清空');
           await send('TEST 网络故障');
           expect(controller.messages.single.status, 'failed');
@@ -213,7 +213,7 @@ void main() {
                 .evaluate()
                 .isNotEmpty,
           );
-          await tap(find.byTooltip('规划'));
+          await tap(find.byTooltip('助手'));
           await tap(find.byKey(ValueKey('undo-proposal-${proposal.id}')));
           await waitFor(
             () async => find
@@ -239,7 +239,7 @@ void main() {
           expect(controller.messages, hasLength(3));
           expect(controller.messages.first.status, 'failed');
           expect(controller.proposals.single.status, 'undone');
-          expect(find.text('已撤销 · 查看结果'), findsOneWidget);
+          expect(find.text('已撤销'), findsOneWidget);
           draft('');
           expect(service.requests, isEmpty);
         }

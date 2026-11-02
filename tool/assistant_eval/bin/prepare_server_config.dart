@@ -16,7 +16,7 @@ Future<void> main() async {
     final file = File('${temp.path}/config.json');
     await file.writeAsString(
       jsonEncode({
-        'base_url': 'https://model.example.invalid/v1',
+        'base_url': 'https://model-relay.example.com/v1',
         'model': 'gpt-6-luna',
         'model_api_key': model.apiKey,
         'port': 8788,

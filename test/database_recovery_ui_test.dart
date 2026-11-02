@@ -142,10 +142,10 @@ void main() {
       reads.fail = false;
       await tapVisible(tester, find.text('重试'));
       expect(find.text('TEST retained'), findsOneWidget);
-      expect(find.text('今日已完成 1 项'), findsOneWidget);
+      expect(find.text('已点亮 1 颗星'), findsOneWidget);
       expect(connections, greaterThan(1));
       await tapVisible(tester, find.byKey(ValueKey('undo-$id')));
-      expect(find.text('今日已完成 0 项'), findsOneWidget);
+      expect(find.text('已点亮 0 颗星'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
       final reopened = AppDatabase(NativeDatabase(file));

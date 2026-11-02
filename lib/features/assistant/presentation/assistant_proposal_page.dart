@@ -235,7 +235,7 @@ class _AssistantProposalPageState extends ConsumerState<AssistantProposalPage> {
   };
   Future<void> _itemEditor(PreviewItem item) async {
     final today = CalendarDate.parse(ref.read(clockProvider).read().day.key);
-    final task = await showModalBottomSheet<PlanTask>(
+    final result = await showModalBottomSheet<Object>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -245,8 +245,20 @@ class _AssistantProposalPageState extends ConsumerState<AssistantProposalPage> {
         agent: _row?.agentMetadata != null,
       ),
     );
-    if (task != null && mounted) await _edit(_preview!.replace(item.id, task));
+    if (!mounted) return;
+    if (result is PlanTask) await _edit(_preview!.replace(item.id, result));
+    if (result == _ProposalItemEditor.removed) {
+      await _edit(_preview!.remove(item.id));
+    }
   }
+
+  Future<void> _remind(PreviewItem item, bool value) => _change((store) async {
+    if (value) await _permission();
+    await store.proposals.editDraft(
+      widget.proposalId,
+      _preview!.setReminder(item.id, value),
+    );
+  });
 
   void _view(PreviewItem item) => Navigator.of(context).push(
     MaterialPageRoute<void>(
@@ -259,99 +271,219 @@ class _AssistantProposalPageState extends ConsumerState<AssistantProposalPage> {
     ),
   );
 
-  Widget _item(PreviewItem item, List<PreviewIssue> issues, bool draft) =>
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 4, 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(item.task.title, style: Theme.of(context).textTheme.bodyLarge),
-            if (draft && _agentValidation != null)
-              for (final issue in _agentValidation!.issues.where(
-                (row) => row['index'] == _preview!.items.indexOf(item),
-              ))
-                _AgentIssue(
-                  partial: issue['code'] == 'unknown_schedule',
-                  text: Text(switch (issue['code']) {
-                    'unknown_schedule' => '无法完整判断此项的冲突',
-                    'conflict' => '与已有安排或本计划其他项冲突',
-                    'duplicate' => '同一天已有同名安排',
-                    'daily_cap' => '超过每日时长上限',
-                    'date_range' => '日期超出规划范围',
-                    _ => '请补全并检查日期、开始时间和时长',
-                  }, key: ValueKey('agent-item-issue-${item.id}')),
-                ),
-            if (item.task.isHabit)
-              Text(
-                item.task.weekdays!
-                    .map((day) => weekdayLabels[day - 1])
-                    .join('、'),
-                style: Theme.of(context).textTheme.bodySmall
-                    ?.copyWith(color: context.xy.muted),
-              ),
-            if (item.timing.label.isNotEmpty)
-              Text(
-                item.timing.label,
-                style: Theme.of(context).textTheme.bodySmall
-                    ?.copyWith(color: context.xy.muted),
-              ),
-            for (final kind
-                in issues
-                    .where((issue) => draft && issue.itemId == item.id)
-                    .map((issue) => issue.kind)
-                    .toSet())
-              Text(
-                _issue(kind),
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            if (draft) ...[
-              SwitchListTile.adaptive(
-                contentPadding: const EdgeInsets.only(right: 12),
-                title: const Text('提醒'),
-                value: item.reminder,
-                onChanged: _busy || item.task.time == null
-                    ? null
-                    : (value) => _change((store) async {
-                        if (value) await _permission();
-                        await store.proposals.editDraft(
-                          widget.proposalId,
-                          _preview!.setReminder(item.id, value),
-                        );
-                      }),
-              ),
-              Wrap(
-                alignment: WrapAlignment.end,
+  /// One plan item, laid out like a row of the planning card: time on the
+  /// left, what and when on the right, quiet controls at the end.
+  Widget _item(PreviewItem item, List<PreviewIssue> issues, bool draft) {
+    final theme = Theme.of(context);
+    final xy = context.xy;
+    final task = item.task;
+    final index = _preview!.items.indexOf(item);
+    final applied = _row!.status == 'applied';
+    final notes = [
+      if (draft && _agentValidation != null)
+        for (final issue in _agentValidation!.issues.where(
+          (row) => row['index'] == index,
+        ))
+          _AgentIssue(
+            partial: issue['code'] == 'unknown_schedule',
+            text: Text(switch (issue['code']) {
+              'unknown_schedule' => agentUnknownScheduleMessage(issue),
+              'conflict' => '与已有安排或本计划其他项冲突',
+              'duplicate' => '同一天已有同名安排',
+              'daily_cap' => '超过每日时长上限',
+              'date_range' => '日期超出规划范围',
+              _ => '请补全并检查日期、开始时间和时长',
+            }, key: ValueKey('agent-item-issue-${item.id}')),
+          ),
+      for (final kind
+          in issues
+              .where((issue) => draft && issue.itemId == item.id)
+              .map((issue) => issue.kind)
+              .toSet())
+        _AgentIssue(partial: false, text: Text(_issue(kind))),
+    ];
+    final time = Text(
+      task.time ?? '不定时',
+      style: task.time == null
+          ? theme.textTheme.bodyMedium?.copyWith(color: xy.muted)
+          : theme.textTheme.titleMedium?.copyWith(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+    );
+    final length = task.minutes == null
+        ? null
+        : Text(
+            '${task.minutes} 分钟',
+            style: theme.textTheme.bodySmall?.copyWith(color: xy.muted),
+          );
+    final days = task.weekdays;
+    final when = days == null
+        ? null
+        : '${days.length == 7 ? '每天' : '每周${days.map((day) => weekdayLabels[day - 1].substring(1)).join()}'} · ${task.date.month}月${task.date.day}日起';
+    final what = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(task.title, style: theme.textTheme.bodyLarge),
+        if (when != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            when,
+            style: theme.textTheme.bodySmall?.copyWith(color: xy.muted),
+          ),
+        ],
+        ...notes,
+      ],
+    );
+    final controls = [
+      if (draft && task.time != null)
+        IconButton(
+          key: ValueKey('plan-reminder-${item.id}'),
+          tooltip: item.reminder ? '关闭提醒' : '开启提醒',
+          isSelected: item.reminder,
+          color: xy.faint,
+          selectedIcon: Icon(
+            CupertinoIcons.bell_fill,
+            size: 20,
+            color: theme.colorScheme.primary,
+          ),
+          onPressed: _busy ? null : () => _remind(item, !item.reminder),
+          icon: const Icon(CupertinoIcons.bell, size: 20),
+        ),
+      if (draft)
+        IconButton(
+          key: ValueKey('edit-plan-${item.id}'),
+          tooltip: '编辑条目',
+          color: xy.faint,
+          onPressed: _busy ? null : () => _itemEditor(item),
+          icon: const Icon(CupertinoIcons.chevron_right, size: 16),
+        )
+      else if (applied)
+        IconButton(
+          tooltip: '查看对应日期',
+          color: xy.faint,
+          onPressed: () => _view(item),
+          icon: const Icon(CupertinoIcons.calendar, size: 20),
+        ),
+    ];
+    final stacked = MediaQuery.textScalerOf(context).scale(18) > 30;
+    return InkWell(
+      onTap: _busy
+          ? null
+          : draft
+          ? () => _itemEditor(item)
+          : applied
+          ? () => _view(item)
+          : null,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, 10, controls.isEmpty ? 16 : 4, 10),
+        child: stacked
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    key: ValueKey('edit-plan-${item.id}'),
-                    tooltip: '编辑条目',
-                    color: Theme.of(context).colorScheme.primary,
-                    onPressed: _busy ? null : () => _itemEditor(item),
-                    icon: const Icon(CupertinoIcons.pencil),
+                  time,
+                  ?length,
+                  const SizedBox(height: 4),
+                  what,
+                  if (controls.isNotEmpty)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Wrap(children: controls),
+                    ),
+                ],
+              )
+            : Row(
+                // A one-line row centres; anything taller reads from the top.
+                crossAxisAlignment:
+                    task.time == null && when == null && notes.isEmpty
+                    ? CrossAxisAlignment.center
+                    : CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: SizedBox(
+                      width: 66,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [time, ?length],
+                      ),
+                    ),
                   ),
-                  IconButton(
-                    key: ValueKey('delete-plan-${item.id}'),
-                    tooltip: '删除条目',
-                    color: Theme.of(context).colorScheme.error,
-                    onPressed: _busy
-                        ? null
-                        : () => _edit(_preview!.remove(item.id)),
-                    icon: const Icon(CupertinoIcons.trash),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: what,
+                    ),
                   ),
+                  ...controls,
                 ],
               ),
-            ] else if (_row!.status == 'applied')
-              Align(
-                alignment: Alignment.centerRight,
-                child: IconButton(
-                  tooltip: '查看对应日期',
-                  onPressed: () => _view(item),
-                  icon: const Icon(CupertinoIcons.calendar),
-                ),
-              ),
-          ],
+      ),
+    );
+  }
+
+  /// What this batch is and where it stands, in the page's own large type.
+  Widget _header(StoredPlanProposal row, PlanPreview preview, bool draft) {
+    final theme = Theme.of(context);
+    final xy = context.xy;
+    final applied = row.status == 'applied';
+    final count = applied
+        ? (jsonDecode(row.appliedGoalIdsJson!) as List).length
+        : preview.items.length;
+    // Large type grows with the user's setting, but not past the point
+    // where the title alone fills a small screen.
+    final title = MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.6,
+      child: Text(
+        draft
+            ? '计划草稿'
+            : applied
+            ? '已添加 $count 项'
+            : '已撤销',
+        style: theme.textTheme.headlineSmall?.copyWith(
+          fontSize: 28,
+          fontWeight: FontWeight.w700,
+          height: 1.2,
         ),
-      );
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (applied)
+            Row(
+              children: [
+                Icon(
+                  CupertinoIcons.checkmark_circle_fill,
+                  size: 26,
+                  color: xy.success,
+                ),
+                const SizedBox(width: 8),
+                Flexible(child: title),
+              ],
+            )
+          else
+            title,
+          const SizedBox(height: 4),
+          MediaQuery.withClampedTextScaling(
+            maxScaleFactor: 2,
+            child: Text(
+              draft
+                  ? '$count 项 · 确认后加入日程'
+                  : applied
+                  ? '已加入日程，可以在「今天」和「回顾」里看到'
+                  : '这批计划已经撤掉',
+              style: theme.textTheme.bodyMedium?.copyWith(color: xy.muted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -360,6 +492,8 @@ class _AssistantProposalPageState extends ConsumerState<AssistantProposalPage> {
               ref.read(clockProvider).read().day)
           .key,
     );
+    final theme = Theme.of(context);
+    final xy = context.xy;
     final row = _row;
     final preview = _preview;
     final issues =
@@ -378,12 +512,81 @@ class _AssistantProposalPageState extends ConsumerState<AssistantProposalPage> {
         <String>[];
     days.sort();
     final draft = row?.status == 'draft';
+    final invalid = _agentValidation?.hasErrors ?? false;
+    final partial = _agentValidation?.partialIndexes.isNotEmpty ?? false;
+    final timed = preview?.items.where((item) => item.task.time != null);
+    // The decision sits in a bar under the list, always in reach.
+    final decide = row != null && preview != null && draft && !_scheduleChanged
+        ? Material(
+            color: theme.scaffoldBackgroundColor,
+            shape: Border(top: BorderSide(color: xy.line, width: 0.5)),
+            child: SafeArea(
+              top: false,
+              // The bar stays on screen, so it must leave room for the plan.
+              child: MediaQuery.withClampedTextScaling(
+                maxScaleFactor: 2,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (invalid)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8),
+                          child: NoticeBanner(
+                            key: ValueKey('agent-invalid-draft'),
+                            tone: NoticeTone.error,
+                            message: '没能排出不冲突的方案，请调整后再确认。',
+                          ),
+                        )
+                      else ...[
+                        if (partial)
+                          CheckboxListTile.adaptive(
+                            key: const ValueKey(
+                              'agent-partial-acknowledgement',
+                            ),
+                            title: const Text('我已了解可能的冲突'),
+                            controlAffinity: ListTileControlAffinity.leading,
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                            value: _partialAcknowledged,
+                            onChanged: _busy
+                                ? null
+                                : (value) => setState(
+                                    () => _partialAcknowledged = value == true,
+                                  ),
+                          ),
+                        FilledButton(
+                          key: const ValueKey('assistant-apply-plan'),
+                          style: FilledButton.styleFrom(
+                            shape: const StadiumBorder(),
+                          ),
+                          onPressed:
+                              _busy ||
+                                  preview.items.isEmpty ||
+                                  (partial && !_partialAcknowledged) ||
+                                  issues.any(
+                                    (issue) => issue.blocksConfirmation,
+                                  )
+                              ? null
+                              : _apply,
+                          child: Text(_busy ? '正在保存' : '确认添加'),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          )
+        : null;
     return AssistantIdentityBoundary(
       store: _store,
       child: Scaffold(
         appBar: pageAppBar(
           context,
-          '计划',
+          '',
           actions: [
             if (draft && row?.agentMetadata == null)
               IconButton(
@@ -393,13 +596,15 @@ class _AssistantProposalPageState extends ConsumerState<AssistantProposalPage> {
               ),
           ],
         ),
+        bottomNavigationBar: decide,
         body: SafeArea(
+          bottom: decide == null,
           child: PageScroll(
             controller: _scroll,
             children: [
               if (_error != null)
                 Padding(
-                  padding: const EdgeInsets.only(top: 12),
+                  padding: const EdgeInsets.only(top: 12, bottom: 4),
                   child: NoticeBanner(tone: NoticeTone.error, message: _error!),
                 ),
               if (row == null || preview == null)
@@ -409,22 +614,15 @@ class _AssistantProposalPageState extends ConsumerState<AssistantProposalPage> {
                   retry: _error == null ? null : _load,
                 )
               else ...[
+                _header(row, preview, draft),
                 if (row.agentMetadata != null)
-                  AgentRunDetails(
-                    metadata: AgentRunMetadata.decode(row.agentMetadata!),
-                    scope: 'proposal',
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, top: 4),
+                    child: AgentRunDetails(
+                      metadata: AgentRunMetadata.decode(row.agentMetadata!),
+                      scope: 'proposal',
+                    ),
                   ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
-                  child: Text(
-                    draft
-                        ? '待确认 · ${preview.items.length} 项'
-                        : row.status == 'undone'
-                        ? '已撤销'
-                        : '已创建 ${(jsonDecode(row.appliedGoalIdsJson!) as List).length} 项',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                ),
                 if (_notificationDenied)
                   const Padding(
                     padding: EdgeInsets.only(top: 12),
@@ -433,24 +631,97 @@ class _AssistantProposalPageState extends ConsumerState<AssistantProposalPage> {
                       message: '通知权限未开启，仍可创建目标；目前不会提醒。',
                     ),
                   ),
+                if (draft && _scheduleChanged)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const NoticeBanner(
+                          key: ValueKey('agent-schedule-changed'),
+                          tone: NoticeTone.warning,
+                          message: '安排有变化',
+                        ),
+                        if (!invalid)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+                            child: Text(
+                              '计划内容或无法判断的安排已变化，请重新检查逐项提示。未创建任何内容。',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: xy.muted,
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            FilledButton.icon(
+                              key: const ValueKey('agent-replan'),
+                              style: FilledButton.styleFrom(
+                                shape: const StadiumBorder(),
+                              ),
+                              onPressed: _busy
+                                  ? null
+                                  : () =>
+                                        Navigator.of(context)
+                                            .pop(AgentProposalAction.replan),
+                              icon: const Icon(
+                                CupertinoIcons.arrow_clockwise,
+                                size: 18,
+                              ),
+                              label: const Text('重新规划'),
+                            ),
+                            TextButton(
+                              key: const ValueKey('agent-return-edit'),
+                              onPressed: _busy ? null : _returnEdit,
+                              child: const Text('返回修改'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                for (final day in days)
+                  XyGroup(
+                    margin: const EdgeInsets.only(top: 20),
+                    dividerIndent: 94,
+                    header:
+                        '${weekdayLabels[CalendarDate.parse(day).weekday - 1]} ${CalendarDate.parse(day).month}月${CalendarDate.parse(day).day}日',
+                    children: [
+                      for (final item in preview.items.where(
+                        (item) =>
+                            !item.task.isHabit && item.task.date.key == day,
+                      ))
+                        _item(item, issues, draft),
+                    ],
+                  ),
+                if (preview.items.any((item) => item.task.isHabit))
+                  XyGroup(
+                    margin: const EdgeInsets.only(top: 20),
+                    dividerIndent: 94,
+                    header: '重复习惯',
+                    children: [
+                      for (final item in preview.items.where(
+                        (item) => item.task.isHabit,
+                      ))
+                        _item(item, issues, draft),
+                    ],
+                  ),
                 if (draft)
                   XyGroup(
-                    margin: const EdgeInsets.only(top: 16),
+                    margin: const EdgeInsets.only(top: 20),
+                    footer: timed!.isEmpty
+                        ? '这批计划都没有具体时间，不会提醒。'
+                        : '也可以点每一项右侧的铃铛单独设置。',
                     children: [
                       SwitchListTile.adaptive(
                         title: const Text('开启定时提醒'),
                         value:
-                            preview.items.any(
-                              (item) => item.task.time != null,
-                            ) &&
-                            preview.items
-                                .where((item) => item.task.time != null)
-                                .every((item) => item.reminder),
-                        onChanged:
-                            _busy ||
-                                !preview.items.any(
-                                  (item) => item.task.time != null,
-                                )
+                            timed.isNotEmpty &&
+                            timed.every((item) => item.reminder),
+                        onChanged: _busy || timed.isEmpty
                             ? null
                             : (value) => _change((store) async {
                                 if (value) await _permission();
@@ -470,103 +741,57 @@ class _AssistantProposalPageState extends ConsumerState<AssistantProposalPage> {
                       ),
                     ],
                   ),
-                for (final day in days)
+                if (row.status == 'undone')
                   XyGroup(
-                    header:
-                        '${dateLabel(LocalDate.parse(day))} ${weekdayLabels[CalendarDate.parse(day).weekday - 1]}',
+                    margin: const EdgeInsets.only(top: 20),
+                    header: '撤销结果',
                     children: [
-                      for (final item in preview.items.where(
-                        (item) =>
-                            !item.task.isHabit && item.task.date.key == day,
-                      ))
-                        _item(item, issues, draft),
-                    ],
-                  ),
-                if (preview.items.any((item) => item.task.isHabit))
-                  XyGroup(
-                    header: '重复习惯',
-                    children: [
-                      for (final item in preview.items.where(
-                        (item) => item.task.isHabit,
-                      ))
-                        _item(item, issues, draft),
-                    ],
-                  ),
-                const SizedBox(height: 28),
-                if (draft && _scheduleChanged) ...[
-                  const NoticeBanner(
-                    key: ValueKey('agent-schedule-changed'),
-                    tone: NoticeTone.warning,
-                    message: '安排有变化',
-                  ),
-                  const SizedBox(height: 8),
-                  if (!(_agentValidation?.hasErrors ?? false))
-                    const Text('计划内容或无法判断的安排已变化，请重新检查逐项提示。未创建任何内容。'),
-                  OutlinedButton.icon(
-                    key: const ValueKey('agent-replan'),
-                    onPressed: _busy
-                        ? null
-                        : () =>
-                              Navigator.of(context)
-                                  .pop(AgentProposalAction.replan),
-                    icon: const Icon(CupertinoIcons.arrow_clockwise),
-                    label: const Text('重新规划'),
-                  ),
-                  TextButton.icon(
-                    key: const ValueKey('agent-return-edit'),
-                    onPressed: _busy ? null : _returnEdit,
-                    icon: const Icon(CupertinoIcons.pencil),
-                    label: const Text('返回修改'),
-                  ),
-                ],
-                if (draft &&
-                    (_agentValidation?.partialIndexes.isNotEmpty ?? false))
-                  CheckboxListTile.adaptive(
-                    key: const ValueKey('agent-partial-acknowledgement'),
-                    title: const Text('我已了解有无法判断的项'),
-                    contentPadding: EdgeInsets.zero,
-                    value: _partialAcknowledged,
-                    onChanged: _busy
-                        ? null
-                        : (value) => setState(
-                            () => _partialAcknowledged = value == true,
+                      for (final item in ProposalUndoResult.decode(
+                        row.undoResultJson!,
+                      ).items)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
                           ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(child: Text(item.title)),
+                              const SizedBox(width: 12),
+                              Flexible(
+                                child: Text(
+                                  _disposition(item.disposition),
+                                  textAlign: TextAlign.end,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: xy.muted,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
-                if (draft && (_agentValidation?.hasErrors ?? false))
-                  const NoticeBanner(
-                    key: ValueKey('agent-invalid-draft'),
-                    tone: NoticeTone.error,
-                    message: '没能排出不冲突的方案，请调整后再确认。',
-                  ),
-                if (draft &&
-                    !_scheduleChanged &&
-                    !(_agentValidation?.hasErrors ?? false))
-                  FilledButton(
-                    key: const ValueKey('assistant-apply-plan'),
-                    onPressed:
-                        _busy ||
-                            preview.items.isEmpty ||
-                            ((_agentValidation?.partialIndexes.isNotEmpty ??
-                                    false) &&
-                                !_partialAcknowledged) ||
-                            issues.any((issue) => issue.blocksConfirmation)
-                        ? null
-                        : _apply,
-                    child: Text(_busy ? '正在保存' : '确认创建'),
+                if (!draft)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 20),
+                    child: ReminderOverview(compact: true),
                   ),
                 if (row.status == 'applied')
-                  OutlinedButton(
-                    key: const ValueKey('assistant-undo-plan'),
-                    onPressed: _busy ? null : _undo,
-                    child: const Text('撤销本批'),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 20),
+                    child: Center(
+                      child: TextButton(
+                        key: const ValueKey('assistant-undo-plan'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: theme.colorScheme.error,
+                        ),
+                        onPressed: _busy ? null : _undo,
+                        child: const Text('撤销本批'),
+                      ),
+                    ),
                   ),
-                if (row.status == 'undone') ...[
-                  for (final item in ProposalUndoResult.decode(
-                    row.undoResultJson!,
-                  ).items)
-                    Text('${item.title}：${_disposition(item.disposition)}'),
-                ],
-                if (!draft) const ReminderOverview(compact: true),
               ],
             ],
           ),
@@ -582,6 +807,10 @@ class _ProposalItemEditor extends StatefulWidget {
     required this.today,
     this.agent = false,
   });
+
+  /// Popped instead of a task when the item should leave the plan.
+  static const removed = #removePlanItem;
+
   final PreviewItem item;
   final CalendarDate today;
   final bool agent;
@@ -656,97 +885,258 @@ class _ProposalItemEditorState extends State<_ProposalItemEditor> {
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-    child: SizedBox(
-      height: MediaQuery.sizeOf(context).height * .85,
-      child: SafeArea(
-        child: Form(
-          key: _form,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final xy = context.xy;
+    final habit = widget.item.task.isHabit;
+    final action = TextButton.styleFrom(minimumSize: const Size(44, 44));
+    final dot = MediaQuery.textScalerOf(context).scale(15) + 22;
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * .85,
+        child: SafeArea(
+          child: Form(
+            key: _form,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '编辑条目',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ),
-                    IconButton(
-                      key: const ValueKey('assistant-save-plan-item'),
-                      tooltip: '保存条目',
-                      onPressed: _save,
-                      icon: const Icon(CupertinoIcons.checkmark),
-                    ),
-                  ],
-                ),
-                SizedBox(height: MediaQuery.textScalerOf(context).scale(12)),
-                TextFormField(
-                  key: const ValueKey('assistant-plan-title'),
-                  controller: _title,
-                  maxLength: 60,
-                  decoration: InputDecoration(
-                    labelText: '名称',
-                    fillColor: context.xy.cardSoft,
-                  ),
-                  validator: (value) =>
-                      value == null || value.trim().isEmpty ? '请输入名称' : null,
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  key: const ValueKey('assistant-plan-date'),
-                  onPressed: _pickDate,
-                  icon: const Icon(CupertinoIcons.calendar),
-                  label: Text(_date.key),
-                ),
-                if (widget.item.task.isHabit) ...[
-                  for (var day = 1; day <= 7; day++)
-                    CheckboxListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(weekdayLabels[day - 1]),
-                      value: _weekdays.contains(day),
-                      onChanged: (value) => setState(() {
-                        if (value == true) {
-                          _weekdays.add(day);
-                        } else {
-                          _weekdays.remove(day);
-                        }
-                      }),
-                    ),
-                ],
-                const SizedBox(height: 12),
-                Card(
-                  color: context.xy.cardSoft,
-                  child: GoalTimingFields(
-                    startMinute: _time,
-                    durationMinutes: _minutes,
-                    onStartChanged: (value) => setState(() => _time = value),
-                    onDurationChanged: (value) =>
-                        setState(() => _minutes = value),
-                  ),
-                ),
-                if (_error != null)
-                  Text(
-                    _error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+                // The bar stays pinned above the form, so it stays one line:
+                // capped text size and a title that ellipsizes.
+                MediaQuery.withClampedTextScaling(
+                  maxScaleFactor: 1.6,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                    child: Row(
+                      children: [
+                        TextButton(
+                          style: action,
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('取消'),
+                        ),
+                        Expanded(
+                          child: Text(
+                            '编辑条目',
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          key: const ValueKey('assistant-save-plan-item'),
+                          style: action.copyWith(
+                            textStyle: WidgetStatePropertyAll(
+                              theme.textTheme.bodyLarge?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          onPressed: _save,
+                          child: const Text('完成'),
+                        ),
+                      ],
                     ),
                   ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextFormField(
+                          key: const ValueKey('assistant-plan-title'),
+                          controller: _title,
+                          maxLength: 60,
+                          decoration: InputDecoration(
+                            labelText: '名称',
+                            fillColor: xy.cardSoft,
+                          ),
+                          validator: (value) =>
+                              value == null || value.trim().isEmpty
+                              ? '请输入名称'
+                              : null,
+                        ),
+                        const SizedBox(height: 8),
+                        Material(
+                          color: xy.cardSoft,
+                          borderRadius: BorderRadius.circular(12),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            key: const ValueKey('assistant-plan-date'),
+                            onTap: _pickDate,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(minHeight: 50),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 10,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Text(habit ? '开始日期' : '日期'),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        '${weekdayLabels[_date.weekday - 1]} ${_date.month}月${_date.day}日',
+                                        textAlign: TextAlign.end,
+                                        style: theme.textTheme.bodyLarge
+                                            ?.copyWith(color: xy.muted),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Icon(
+                                      CupertinoIcons.chevron_right,
+                                      size: 14,
+                                      color: xy.faint,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (habit) ...[
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
+                            child: Text(
+                              '重复',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: xy.muted,
+                              ),
+                            ),
+                          ),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: [
+                              for (var day = 1; day <= 7; day++)
+                                _Weekday(
+                                  key: ValueKey('plan-weekday-$day'),
+                                  label: weekdayLabels[day - 1],
+                                  size: dot,
+                                  selected: _weekdays.contains(day),
+                                  onTap: () => setState(() {
+                                    if (!_weekdays.remove(day)) {
+                                      _weekdays.add(day);
+                                    }
+                                  }),
+                                ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 20),
+                        Card(
+                          color: xy.cardSoft,
+                          child: GoalTimingFields(
+                            startMinute: _time,
+                            durationMinutes: _minutes,
+                            onStartChanged: (value) =>
+                                setState(() => _time = value),
+                            onDurationChanged: (value) =>
+                                setState(() => _minutes = value),
+                          ),
+                        ),
+                        if (_error != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Text(
+                              _error!,
+                              style: TextStyle(color: theme.colorScheme.error),
+                            ),
+                          ),
+                        const SizedBox(height: 28),
+                        // Full width, so a large label wraps instead of
+                        // being cut at the sheet's edge.
+                        SizedBox(
+                          width: double.infinity,
+                          child: TextButton(
+                            key: ValueKey('delete-plan-${widget.item.id}'),
+                            style: action.copyWith(
+                              foregroundColor: WidgetStatePropertyAll(
+                                theme.colorScheme.error,
+                              ),
+                            ),
+                            onPressed: () =>
+                                Navigator.of(context)
+                                    .pop(_ProposalItemEditor.removed),
+                            child: const Text(
+                              '从计划中删除',
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
-/// A per-item agent check result: amber for "can't fully judge", red for a
-/// hard problem.
+/// A round weekday toggle: tinted when chosen, outlined when not.
+class _Weekday extends StatelessWidget {
+  const _Weekday({
+    required this.label,
+    required this.size,
+    required this.selected,
+    required this.onTap,
+    super.key,
+  });
+
+  final String label;
+  final double size;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      onTap: onTap,
+      child: Material(
+        color: selected ? scheme.primary : context.xy.cardSoft,
+        shape: const StadiumBorder(),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: size, minHeight: size),
+            child: Center(
+              widthFactor: 1,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  label.substring(1),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: selected ? scheme.onPrimary : scheme.onSurface,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A per-item check result: amber for a possible conflict, red for a hard
+/// problem.
 class _AgentIssue extends StatelessWidget {
   const _AgentIssue({required this.partial, required this.text});
 
@@ -759,16 +1149,16 @@ class _AgentIssue extends StatelessWidget {
         ? context.xy.warning
         : Theme.of(context).colorScheme.error;
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.only(top: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.only(top: 3),
             child: Icon(
               partial
-                  ? CupertinoIcons.exclamationmark_triangle_fill
-                  : CupertinoIcons.xmark_octagon_fill,
+                  ? CupertinoIcons.exclamationmark_circle
+                  : CupertinoIcons.xmark_circle,
               size: 14,
               color: color,
             ),

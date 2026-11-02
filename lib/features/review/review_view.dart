@@ -212,6 +212,7 @@ class _ReviewViewState extends ConsumerState<ReviewView> {
                             'history-${view.goal.id}-${selected.key}',
                           ),
                           view: view,
+                          dayShown: true,
                           onOpen: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) =>
@@ -345,6 +346,7 @@ class _ReviewViewState extends ConsumerState<ReviewView> {
     LocalDate today,
   ) {
     final xy = context.xy;
+    final scheme = Theme.of(context).colorScheme;
     final count = goals.where((goal) => goal.completionOn(day) != null).length;
     final isSelected = day == selected;
     final isToday = day == today;
@@ -361,12 +363,12 @@ class _ReviewViewState extends ConsumerState<ReviewView> {
             padding: EdgeInsets.zero,
             minimumSize: Size(width, height),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
             foregroundColor: xy.onSky,
-            backgroundColor: isSelected
-                ? xy.onSky.withValues(alpha: 0.16)
-                : null,
+            // 雾青纸感: the chosen day is a solid accent chip; today is
+            // marked by the accent number until it is chosen.
+            backgroundColor: isSelected ? scheme.primary : null,
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -386,7 +388,9 @@ class _ReviewViewState extends ConsumerState<ReviewView> {
                           height: 3,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: xy.onSkyMuted.withValues(alpha: 0.35),
+                            color: isSelected
+                                ? scheme.onPrimary.withValues(alpha: 0.6)
+                                : xy.onSkyMuted.withValues(alpha: 0.35),
                           ),
                         ),
                 ),
@@ -394,14 +398,14 @@ class _ReviewViewState extends ConsumerState<ReviewView> {
               Text(
                 '${day.day}',
                 style: dayStyle.copyWith(
-                  color: isToday
-                      ? xy.star
-                      : isSelected
-                      ? xy.onSky
-                      : xy.onSkyMuted,
+                  color: isSelected
+                      ? scheme.onPrimary
+                      : isToday
+                      ? scheme.primary
+                      : xy.onSky,
                   fontWeight: isToday || isSelected
-                      ? FontWeight.w700
-                      : FontWeight.w500,
+                      ? FontWeight.w600
+                      : FontWeight.w400,
                 ),
                 maxLines: 1,
               ),

@@ -39,6 +39,9 @@ class AssistantSettings extends Table {
   BoolColumn get sendSchedule => boolean().withDefault(const Constant(true))();
   BoolColumn get sendStats => boolean().withDefault(const Constant(true))();
   BoolColumn get autoMemory => boolean().withDefault(const Constant(true))();
+  BoolColumn get readJournalOnRequest =>
+      boolean().withDefault(const Constant(true))();
+  IntColumn get settingsRevision => integer().withDefault(const Constant(0))();
   BoolColumn get agentEnabled => boolean().withDefault(const Constant(true))();
   @override
   Set<Column<Object>> get primaryKey => {owner};

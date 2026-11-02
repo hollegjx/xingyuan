@@ -79,16 +79,26 @@ void main() {
                       textScaler: TextScaler.linear(scale),
                       disableAnimations: true,
                     ),
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: AgentRunDetails(
-                        scope: scope,
-                        metadata: AgentRunMetadata(
-                          date: CalendarDate(2026, 10, 28),
-                          trace: const [
-                            AgentTraceEntry('query_schedule', 'partial', 1500),
-                            AgentTraceEntry('validate_plan', 'ok', 2000),
-                          ],
+                    // C35: the page paints the surface, without Material.
+                    child: ColoredBox(
+                      color: brightness == Brightness.light
+                          ? XyColors.light.card
+                          : Colors.black,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: AgentRunDetails(
+                          scope: scope,
+                          metadata: AgentRunMetadata(
+                            date: CalendarDate(2026, 10, 28),
+                            trace: const [
+                              AgentTraceEntry(
+                                'query_schedule',
+                                'partial',
+                                1500,
+                              ),
+                              AgentTraceEntry('validate_plan', 'ok', 2000),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -108,8 +118,8 @@ void main() {
               boundary,
               'c24-${brightness.name}-$scale-$scope',
               const Size(320, 568),
-              text: find.text('过程记录'),
-              expectedText: '过程记录',
+              text: find.text(scope == 'running' ? '已完成' : '看过日程，查了冲突'),
+              expectedText: scope == 'running' ? '已完成' : '看过日程，查了冲突',
             );
             await tester.tap(header);
             await tester.pumpAndSettle();

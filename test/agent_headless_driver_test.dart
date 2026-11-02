@@ -25,9 +25,20 @@ void main() {
       final report = await runPreparation(options, Directory.current.path);
       expect(report['executed'], 20);
       expect(report['not_run'], 0);
-      expect(report['failed'], 0);
+      // C36 owner decision supersedes the frozen S06/S07 day-wide warning.
+      // Preserve the old fixtures/scorer and expose their incompatibility.
+      expect(report['failed'], 2);
       expect(report['incomplete'], 0);
-      expect(report['passed'], 20);
+      expect(report['passed'], 18);
+      final changed = (report['cases'] as List)
+          .cast<Map>()
+          .where((row) => row['status'] == 'fail')
+          .toList();
+      expect(changed.map((row) => row['case_id']), ['S06', 'S07']);
+      for (final row in changed) {
+        expect(row['validation'], 'ok');
+        expect(row['checks']['unknown_schedule_not_ok'], 'fail');
+      }
       expect(report['product_acceptance'], 'not_run');
       final trace = jsonDecode(
         File('$path/synthetic-traces.json').readAsStringSync(),
@@ -45,8 +56,8 @@ void main() {
         'invalid',
         'ok',
       ]);
-      expect(events('S06', 'validation').single['status'], 'partial');
-      expect(events('S07', 'validation').single['status'], 'partial');
+      expect(events('S06', 'validation').single['status'], 'ok');
+      expect(events('S07', 'validation').single['status'], 'ok');
       expect(events('S08', 'tool').single['executed'], false);
       expect(events('S09', 'tool').single['status'], 'failed');
       expect(events('S13', 'tool').map((e) => e['status']), [

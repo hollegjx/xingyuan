@@ -44,22 +44,22 @@ List<XyEntry> todayEntries(
   required VoidCallback? onDiary,
   required VoidCallback? onNewGoal,
 }) {
-  final dark = Theme.of(context).brightness == Brightness.dark;
-  final xy = context.xy;
+  // One accent for every entrance; only the star keeps its gold.
+  final tint = Theme.of(context).colorScheme.primary;
   return [
     XyEntry(
       key: const ValueKey('entry-check-in'),
       label: '打卡',
       hint: '跳到今天的目标',
-      tint: xy.star,
-      glyph: const StarMark(lit: true, size: 26, glow: false),
+      tint: tint,
+      glyph: const StarMark(lit: true, size: 24, glow: false),
       onTap: onCheckIn,
     ),
     XyEntry(
       key: const ValueKey('entry-quick-note'),
       label: '随手记',
       hint: '写一条随手记',
-      tint: dark ? const Color(0xFFFF6B8E) : const Color(0xFFF2557D),
+      tint: tint,
       icon: CupertinoIcons.square_pencil_fill,
       onTap: onQuickNote,
     ),
@@ -67,7 +67,7 @@ List<XyEntry> todayEntries(
       key: const ValueKey('entry-diary'),
       label: '写日记',
       hint: '打开今天的日记',
-      tint: Theme.of(context).colorScheme.primary,
+      tint: tint,
       icon: CupertinoIcons.book_fill,
       onTap: onDiary,
     ),
@@ -75,7 +75,7 @@ List<XyEntry> todayEntries(
       key: const ValueKey('entry-new-goal'),
       label: '新目标',
       hint: '新建一个目标',
-      tint: dark ? const Color(0xFF63E6E2) : const Color(0xFF00A8A0),
+      tint: tint,
       icon: CupertinoIcons.flag_fill,
       onTap: onNewGoal,
     ),
@@ -99,14 +99,24 @@ class XyEntryBubbles extends StatelessWidget {
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         if (scale <= 1.35 && width / entries.length >= 72) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (final entry in entries)
-                Expanded(
-                  child: _EntryBubble(key: entry.key, entry: entry),
-                ),
-            ],
+          // One quiet card of shortcuts rather than a row of loud bubbles.
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              color: context.xy.card,
+              borderRadius: BorderRadius.circular(xyCardRadius),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final entry in entries)
+                    Expanded(
+                      child: _EntryBubble(key: entry.key, entry: entry),
+                    ),
+                ],
+              ),
+            ),
           );
         }
         final tileWidth = 78 + 3.2 * 15 * scale;
@@ -209,7 +219,7 @@ class _EntryBubbleState extends State<_EntryBubble>
     final theme = Theme.of(context);
     final xy = context.xy;
     final entry = widget.entry;
-    final diameter = widget.tile ? 44.0 : 58.0;
+    final diameter = widget.tile ? 36.0 : 30.0;
     final bubble = ScaleTransition(
       scale: _scale,
       child: _Bubble(entry: entry, diameter: diameter),
@@ -261,7 +271,7 @@ class _EntryBubbleState extends State<_EntryBubble>
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              children: [mark, const SizedBox(height: 7), label],
+              children: [mark, const SizedBox(height: 6), label],
             ),
           );
     return MergeSemantics(
@@ -285,8 +295,7 @@ class _EntryBubbleState extends State<_EntryBubble>
   }
 }
 
-/// A glassy round bubble: soft tint, a highlight towards the top left and a
-/// hairline rim.
+/// The entry's mark: its icon in the entry tint, flat on the card.
 class _Bubble extends StatelessWidget {
   const _Bubble({required this.entry, required this.diameter});
 
@@ -294,49 +303,14 @@ class _Bubble extends StatelessWidget {
   final double diameter;
 
   @override
-  Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final xy = context.xy;
-    final tint = entry.tint;
-    final base = Color.alphaBlend(
-      tint.withValues(alpha: dark ? 0.24 : 0.14),
-      xy.card,
-    );
-    final shine = Color.alphaBlend(
-      Colors.white.withValues(alpha: dark ? 0.08 : 0.7),
-      base,
-    );
-    return ExcludeSemantics(
-      child: Container(
-        width: diameter,
-        height: diameter,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(
-            center: const Alignment(-0.4, -0.5),
-            radius: 0.9,
-            colors: [shine, base],
-          ),
-          border: Border.all(
-            color: tint.withValues(alpha: dark ? 0.28 : 0.2),
-            width: 0.8,
-          ),
-          boxShadow: dark
-              ? null
-              : [
-                  BoxShadow(
-                    color: tint.withValues(alpha: 0.16),
-                    blurRadius: 14,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-        ),
-        child:
-            entry.glyph ?? Icon(entry.icon, size: diameter * 0.42, color: tint),
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: SizedBox.square(
+      dimension: diameter,
+      child: Center(
+        child: entry.glyph ?? Icon(entry.icon, size: 24, color: entry.tint),
       ),
-    );
-  }
+    ),
+  );
 }
 
 /// A ring that widens and fades, and eight motes — sparkles and dots —

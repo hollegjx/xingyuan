@@ -102,7 +102,7 @@ Future<void> main(List<String> args) async {
     'simctl',
     'get_app_container',
     simulator,
-    'org.example.xingyuan',
+    'dev.hollegjx.habitCheckin',
     'data',
   ]);
   if (container.exitCode != 0) {
@@ -284,7 +284,7 @@ Future<void> main(List<String> args) async {
       'simctl',
       'get_app_container',
       simulator,
-      'org.example.xingyuan',
+      'dev.hollegjx.habitCheckin',
       'data',
     ]);
     if (currentContainer.exitCode == 0) {
@@ -339,7 +339,7 @@ Future<void> main(List<String> args) async {
           'simctl',
           'launch',
           simulator,
-          'org.example.xingyuan',
+          'dev.hollegjx.habitCheckin',
         ]);
         await audit('ordinary_secret_audit');
       } catch (_) {

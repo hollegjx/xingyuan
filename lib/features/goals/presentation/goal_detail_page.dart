@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import '../../../app/theme.dart';
+import '../../../shared/local_date.dart';
 import '../../../shared/presentation.dart';
 import '../../../shared/ui/sparkle.dart';
 import '../../records/presentation/day_record_preview.dart';
@@ -104,22 +105,32 @@ class GoalDetailPage extends ConsumerWidget {
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Text(
-                              goal.titleOn(today),
-                              style: theme.textTheme.headlineMedium,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  goal.titleOn(today),
+                                  style: theme.textTheme.headlineMedium,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  scheduleLabel(goal.kind, schedule),
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: xy.muted,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
+                    if (goal.kind == GoalKind.habit)
+                      _RecentWeek(goal: goal, today: today),
                     XyGroup(
                       margin: const EdgeInsets.only(top: 20),
                       dividerIndent: 54,
                       children: [
-                        info(
-                          CupertinoIcons.calendar,
-                          scheduleLabel(goal.kind, schedule),
-                        ),
                         if (goal.kind == GoalKind.habit &&
                             (schedule.weekdays != next.weekdays ||
                                 schedule.startMinute != next.startMinute ||
@@ -233,6 +244,91 @@ class GoalDetailPage extends ConsumerWidget {
                 );
               },
             ),
+      ),
+    );
+  }
+}
+
+/// The last seven days as seven small stars: lit where the goal was done.
+/// A glance at how it is going, without numbers to compete with.
+class _RecentWeek extends StatelessWidget {
+  const _RecentWeek({required this.goal, required this.today});
+
+  final Goal goal;
+  final LocalDate today;
+
+  @override
+  Widget build(BuildContext context) {
+    final xy = context.xy;
+    final theme = Theme.of(context);
+    final days = [for (var i = 6; i >= 0; i--) today.addDays(-i)];
+    final lit = days.where((day) => goal.completionOn(day) != null).length;
+    return Container(
+      key: const ValueKey('goal-recent-week'),
+      margin: const EdgeInsets.only(top: 20),
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 14),
+      decoration: BoxDecoration(
+        color: xy.card,
+        borderRadius: BorderRadius.circular(xyCardRadius),
+        border: Border.all(color: xy.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Text(
+              lit == 0 ? '最近 7 天还没有点亮' : '最近 7 天点亮了 $lit 次',
+              style: theme.textTheme.titleSmall,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              for (final day in days)
+                Expanded(
+                  child: Semantics(
+                    label:
+                        '${dateLabel(day)}'
+                        '${goal.completionOn(day) != null ? '，已点亮' : ''}',
+                    excludeSemantics: true,
+                    child: Column(
+                      children: [
+                        StarMark(
+                          lit: goal.completionOn(day) != null,
+                          size: 20,
+                          outline: day.isBefore(goal.createdDay)
+                              ? xy.line
+                              : xy.faint,
+                          glow: false,
+                        ),
+                        const SizedBox(height: 6),
+                        // A chart label: up to 2x so seven columns always
+                        // fit; VoiceOver reads the full date.
+                        MediaQuery.withClampedTextScaling(
+                          maxScaleFactor: 2,
+                          child: Text(
+                            // One character per column so the row fits at
+                            // every text size; VoiceOver reads the full date.
+                            day == today
+                                ? '今'
+                                : weekdayLabels[day.weekday - 1].substring(1),
+                            maxLines: 1,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: day == today
+                                  ? theme.colorScheme.primary
+                                  : xy.muted,
+                              fontWeight: day == today ? FontWeight.w700 : null,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }

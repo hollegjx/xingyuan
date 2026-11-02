@@ -5,6 +5,8 @@ import 'package:crypto/crypto.dart';
 import 'package:xingyuan_core/xingyuan_core.dart';
 
 import 'prompts/agent_v3.dart';
+import 'prompts/agent_v4.dart' as assistant;
+import 'prompts/agent_v5.dart' as chat;
 import 'agent_rejection.dart';
 export 'prompts/agent_v3.dart';
 export 'agent_rejection.dart';
@@ -73,7 +75,10 @@ Map<String, Object?> _stringSchema(int max, {int min = 0}) => {
       'At most $max user-visible grapheme characters; checked locally.',
 };
 
-List<Map<String, Object?>> agentToolSchemas() {
+List<Map<String, Object?>> agentToolSchemas({
+  bool extended = false,
+  bool contextual = false,
+}) {
   final date = {'type': 'string', 'pattern': r'^\d{4}-\d{2}-\d{2}$'};
   final item = _objectSchema({
     'title': _stringSchema(60, min: 1),
@@ -124,13 +129,46 @@ List<Map<String, Object?>> agentToolSchemas() {
         'budget. Do not ask for final confirmation before this tool; the user '
         'confirms later in the App. Never claim saved tasks.',
   ];
+  if (extended) {
+    schemas.addAll([
+      _objectSchema({'day': date}),
+      _objectSchema({
+        'day': date,
+        'kinds': {
+          'type': 'array',
+          'minItems': 1,
+          'maxItems': 2,
+          'uniqueItems': true,
+          'items': {
+            'type': 'string',
+            'enum': ['quickNote', 'diary'],
+          },
+        },
+      }),
+      _objectSchema({
+        'day': date,
+        'text': _stringSchema(assistantDiaryDraftLimit, min: 1),
+      }),
+    ]);
+  }
+  final names = extended ? assistantAgentTools : agentTools;
+  final allDescriptions = [
+    ...descriptions,
+    if (extended) ...[
+      'Read only the explicitly requested single day of arrangements: goal/task titles, planned time/minutes, completion/time and saved check-in text. Today-7 through today only; no scanning.',
+      'Read only requested saved journal kinds on one explicitly requested day. Today-7 through today; past dates need App confirmation. No photos or drafts.',
+      'Propose a diary draft for one requested day in today-7 through today. Does not write or save; user confirmation and conflict checks happen in the App.',
+    ],
+  ];
   return [
-    for (var i = 0; i < agentTools.length; i++)
+    for (var i = 0; i < names.length; i++)
       {
         'type': 'function',
         'function': {
-          'name': agentTools[i],
-          'description': descriptions[i],
+          'name': names[i],
+          'description': contextual && i >= 5
+              ? chat.recordToolDescriptions[i - 5]
+              : allDescriptions[i],
           'strict': true,
           'parameters': schemas[i],
         },
@@ -145,14 +183,22 @@ String agentModelBody(AgentRequest request) => jsonEncode({
   'store': false,
   'parallel_tool_calls': false,
   'tool_choice': 'auto',
-  'tools': agentToolSchemas(),
+  'tools': agentToolSchemas(
+    extended: request is AssistantAgentRequest,
+    contextual: assistantContextEnabled(request),
+  ),
   'messages': [
     {
       'role': 'system',
       'content':
-          '$agentSystemPrompt\nLocal clock: ${jsonEncode(request.now.toJson())}\n'
+          '${assistantContextEnabled(request)
+              ? chat.agentSystemPrompt
+              : request is AssistantAgentRequest
+              ? assistant.agentSystemPrompt
+              : agentSystemPrompt}\nLocal clock: ${jsonEncode(request.now.toJson())}\n'
           'Allowed local dates (inclusive): ${request.now.date.key} to '
-          '${request.now.date.addDays(14).key}.',
+          '${request.now.date.addDays(14).key}.'
+          '${request is AssistantAgentRequest ? ' Record dates: ${request.now.date.addDays(assistantContextEnabled(request) ? -6 : -7).key} to ${request.now.date.key} inclusive.' : ''}',
     },
     ...request.messages,
   ],
@@ -191,16 +237,24 @@ class AgentUsage {
 }
 
 class AgentOutcome {
-  const AgentOutcome._(this.kind, {this.text, this.call, this.code});
+  const AgentOutcome._(
+    this.kind, {
+    this.text,
+    this.call,
+    this.code,
+    this.memorySummary,
+  });
   const AgentOutcome.stop(String code) : this._('stopped', code: code);
   const AgentOutcome.tool(AgentToolCall call) : this._('tool_call', call: call);
   final String kind;
   final String? text;
   final AgentToolCall? call;
   final String? code;
+  final String? memorySummary;
   Map<String, Object?> toJson() => {
     'kind': kind,
     if (text != null) 'text': text,
+    if (memorySummary != null) 'memory_summary': memorySummary,
     if (call != null) 'tool_call': call!.toJson(),
     if (code != null) 'code': code,
   };
@@ -238,7 +292,12 @@ class AgentModelReply {
                  ? rejectionDetail
                  : agentRejectionDetailForCode(outcome.code)
            : null;
-  factory AgentModelReply.parse(Object? value, CalendarDate today) {
+  factory AgentModelReply.parse(
+    Object? value,
+    CalendarDate today, {
+    bool extended = false,
+    bool contextual = false,
+  }) {
     final usage = AgentUsage.parse(value is Map ? value['usage'] : null);
     var category = 'protocol_other';
     var detail = 'envelope_shape';
@@ -270,7 +329,9 @@ class AgentModelReply {
         category = 'invalid_args';
         rejectedCall = rawCall;
         parsingCall = true;
-        final call = AgentToolCall.parse(rawCall, today);
+        final call = extended
+            ? AssistantAgentCall.parse(rawCall, today)
+            : AgentToolCall.parse(rawCall, today);
         return AgentModelReply(AgentOutcome.tool(call), usage);
       }
       detail = 'finish_reason';
@@ -285,12 +346,30 @@ class AgentModelReply {
       detail = 'content_json';
       final decoded = decodeAssistantJson(content);
       detail = 'text_fields';
-      final text = agentObject(decoded, {'kind', 'text'});
+      final text = agentObject(decoded, {
+        'kind',
+        'text',
+        if (extended &&
+            contextual &&
+            decoded is Map &&
+            decoded.containsKey('memory_summary'))
+          'memory_summary',
+      });
       detail = 'text_kind';
       if (text['kind'] != 'text' && text['kind'] != 'question') _invalid();
       detail = 'text_value';
       return AgentModelReply(
-        AgentOutcome._(text['kind'] as String, text: _text(text['text'], 4000)),
+        AgentOutcome._(
+          text['kind'] as String,
+          text: _text(text['text'], 4000),
+          memorySummary: text.containsKey('memory_summary')
+              ? _text(
+                  text['memory_summary'],
+                  assistantMemorySummaryLimit,
+                  empty: true,
+                )
+              : null,
+        ),
         usage,
       );
     } on FormatException {

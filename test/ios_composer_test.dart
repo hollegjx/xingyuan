@@ -80,7 +80,7 @@ void main() {
               recordPhotoFiles: MemoryRecordPhotoFiles(),
             );
             if (page == 'planning') {
-              await tapVisible(tester, find.byTooltip('规划'));
+              await tapVisible(tester, find.byTooltip('助手'));
             } else {
               await openMenu(tester, '陪伴');
               await tapVisible(

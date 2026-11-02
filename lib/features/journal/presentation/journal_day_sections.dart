@@ -56,7 +56,7 @@ class JournalDaySections extends ConsumerWidget {
               if (canCreate)
                 _WriteRow(
                   key: ValueKey('write-note-${day.key}'),
-                  icon: CupertinoIcons.square_pencil_fill,
+                  icon: CupertinoIcons.square_pencil,
                   tint: journalNoteTint(context),
                   label: rows.isEmpty ? '写一条随手记' : '再记一条',
                   onTap: () => write(JournalKind.quickNote),
@@ -81,7 +81,7 @@ class JournalDaySections extends ConsumerWidget {
               else if (canCreate)
                 _WriteRow(
                   key: ValueKey('write-diary-${day.key}'),
-                  icon: CupertinoIcons.book_fill,
+                  icon: CupertinoIcons.book,
                   tint: Theme.of(context).colorScheme.primary,
                   label: '写下这一天的日记',
                   onTap: () => write(JournalKind.diary),

@@ -158,7 +158,7 @@ void main() {
             assistantCredentials: ConversationTestCredentials(),
             wrapApp: (child) => RepaintBoundary(key: boundary, child: child),
           );
-          await tapViewport(tester, find.byTooltip('规划'));
+          await tapViewport(tester, find.byTooltip('助手'));
           final controller = await app.container.read(
             assistantConversationProvider.future,
           );

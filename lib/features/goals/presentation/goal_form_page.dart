@@ -356,13 +356,15 @@ class _GoalFormPageState extends ConsumerState<GoalFormPage> {
                   ],
                 ),
                 XyGroup(
-                  footer: _reminder ? '提醒按最近日期预排，打开 App 时补充；长期不打开可能耗尽。' : null,
+                  footer: _reminder
+                      ? '提醒会提前排好。很久不打开星愿，排好的提醒可能会用完；打开一次就会补上。'
+                      : null,
                   children: [
                     SwitchListTile.adaptive(
                       key: const ValueKey('reminder-toggle'),
-                      secondary: const XyIconTile(
-                        CupertinoIcons.bell_fill,
-                        color: Color(0xFFFF3B30),
+                      secondary: XyIconTile(
+                        CupertinoIcons.bell,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                       title: const Text('提醒'),
                       value: _reminder,

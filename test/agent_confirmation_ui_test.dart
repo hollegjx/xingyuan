@@ -44,6 +44,7 @@ void main() {
                   title: 'TEST original unknown',
                   kind: GoalKind.single,
                   plannedDay: app.clock.day,
+                  startMinute: 590, // C36 unknown-duration overlap.
                 ),
               );
             }
@@ -110,7 +111,7 @@ void main() {
                 'TEST unsent draft',
               );
             }
-            await tapVisible(tester, key('open-proposal-${original.id}'));
+            await tapVisible(tester, key('adjust-proposal-${original.id}'));
             if (change == 'partial') {
               await tapVisible(tester, key('agent-partial-acknowledgement'));
             }
@@ -126,7 +127,7 @@ void main() {
                       ? 600
                       : change == 'daily_cap'
                       ? 800
-                      : null,
+                      : 600,
                   durationMinutes: change == 'partial' ? null : 40,
                 ),
               );
@@ -150,7 +151,7 @@ void main() {
                 'conflict' => '与已有安排或本计划其他项冲突',
                 'daily_cap' => '超过每日时长上限',
                 'midnight' => '日期超出规划范围',
-                _ => '无法完整判断此项的冲突',
+                _ => '可能和「TEST original unknown」09:50 冲突',
               }),
               findsWidgets,
             );
@@ -240,7 +241,7 @@ void main() {
         assistantConversationProvider.future,
       );
       final original = controller.proposals.single;
-      await tapVisible(tester, key('open-proposal-${original.id}'));
+      await tapVisible(tester, key('adjust-proposal-${original.id}'));
       if (action == 'revoke') {
         await LocalMemoryStore(app.repository)
             .updateSettings(sendSchedule: false);

@@ -115,6 +115,43 @@ class LocalConversationStore {
         .get();
   });
 
+  String get continuousSessionId => 'continuous:$owner';
+  bool isContinuous(String id) => id == continuousSessionId;
+
+  Future<String> openContinuous() => db.transaction(() async {
+    await _active();
+    await db
+        .into(db.assistantSessions)
+        .insert(
+          AssistantSessionsCompanion.insert(
+            id: continuousSessionId,
+            owner: owner,
+            title: '星愿助手',
+            createdAt: _now,
+            updatedAt: _now,
+          ),
+          mode: InsertMode.insertOrIgnore,
+        );
+    return continuousSessionId;
+  });
+
+  /// Clear transported context, preserving the complete local transcript.
+  Future<void> clearMemorySummary(String id) => db.transaction(() async {
+    await _active();
+    await _session(id);
+    if (!isContinuous(id)) throw const FormatException('Not continuous chat');
+    final history = await _messages(id);
+    await memories.updateSettings(); // Invalidates even a late in-flight reply.
+    await (db.update(
+      db.assistantSessions,
+    )..where((row) => row.owner.equals(owner) & row.id.equals(id))).write(
+      AssistantSessionsCompanion(
+        summary: const Value(null),
+        summaryThrough: Value(history.lastOrNull?.id),
+      ),
+    );
+  });
+
   Future<String> createSession() => db.transaction(() async {
     await _active();
     final id = const Uuid().v4();
@@ -321,37 +358,62 @@ class LocalConversationStore {
     isCurrent: () => isCurrent(turn),
   );
 
-  Future<ConversationInput> input(PendingAssistantTurn turn) =>
-      db.transaction(() async {
-        await _pending(turn);
-        final session = await _session(turn.sessionId);
-        final history = (await _messages(turn.sessionId))
-            .where((row) => row.status == 'sent' || row.id == turn.messageId)
-            .toList();
-        final through = session.summaryThrough == null
-            ? -1
-            : history.indexWhere((row) => row.id == session.summaryThrough);
-        if ((session.summary == null) != (session.summaryThrough == null) ||
-            (session.summaryThrough != null && through < 0)) {
-          throw const GoalRuleException('会话摘要记录不完整，请新开会话；原聊天仍保留。');
-        }
-        final remaining = history.skip(through + 1).toList();
-        var characters = 0;
-        var count = 0;
-        for (final row in remaining.reversed) {
-          final length = row.content.characters.length;
-          if (count == 20 || characters + length > 12000) break;
-          characters += length;
-          count++;
-        }
-        final split = remaining.length - count;
-        return ConversationInput._(
-          session.summary,
-          session.summaryThrough,
-          List.unmodifiable(remaining.skip(split)),
-          List.unmodifiable(remaining.take(split)),
-        );
-      });
+  Future<ConversationInput> input(
+    PendingAssistantTurn turn, {
+    bool recordsSupported = false,
+  }) => db.transaction(() async {
+    await _pending(turn);
+    if (await shouldWithholdRecordHistory(
+      turn,
+      recordsSupported: recordsSupported,
+    )) {
+      final current = await _pending(turn);
+      return ConversationInput._(
+        null,
+        null,
+        List.unmodifiable([current]),
+        const [],
+      );
+    }
+    final session = await _session(turn.sessionId);
+    final all = await _messages(turn.sessionId);
+    final boundary =
+        isContinuous(turn.sessionId) && session.summaryThrough != null
+        ? all.indexWhere((row) => row.id == session.summaryThrough)
+        : -1;
+    final history = all
+        .skip(boundary + 1)
+        .where((row) => row.status == 'sent' || row.id == turn.messageId)
+        .toList();
+    final through = session.summaryThrough == null
+        ? -1
+        : history.indexWhere((row) => row.id == session.summaryThrough);
+    if (!isContinuous(turn.sessionId) &&
+        ((session.summary == null) != (session.summaryThrough == null) ||
+            (session.summaryThrough != null && through < 0))) {
+      throw const GoalRuleException('会话摘要记录不完整，请新开会话；原聊天仍保留。');
+    }
+    final remaining = history.skip(through + 1).toList();
+    var characters = 0;
+    var count = 0;
+    for (final row in remaining.reversed) {
+      final length = row.content.characters.length;
+      if (count == 20 || characters + length > 12000) break;
+      characters += length;
+      count++;
+    }
+    final split = remaining.length - count;
+    return ConversationInput._(
+      isContinuous(turn.sessionId) && !turn.settings.sendMemories
+          ? null
+          : session.summary,
+      session.summaryThrough,
+      List.unmodifiable(remaining.skip(split)),
+      isContinuous(turn.sessionId)
+          ? const []
+          : List.unmodifiable(remaining.take(split)),
+    );
+  });
 
   Future<PendingAssistantSummary?> nextSummary(PendingAssistantTurn turn) =>
       db.transaction(() async {
@@ -451,35 +513,93 @@ class LocalConversationStore {
         await _pending(turn);
       });
 
-  Future<String> agentInput(PendingAssistantTurn turn) => db.transaction(
-    () async {
-      final context = await input(turn);
-      if (context.needsSummary) {
-        // Agent summaries would be unmetered calls outside the six-call ledger.
-        throw const AssistantFailure(AssistantFailureKind.summary);
-      }
+  /// C80 continuous v2 may reuse records while the master switch is on.
+  /// Old sessions and fallback preserve their established isolation contract.
+  /// Inspect metadata only; historical conversation text is not needed for this decision.
+  Future<bool> shouldWithholdRecordHistory(
+    PendingAssistantTurn turn, {
+    required bool recordsSupported,
+  }) => db.transaction(() async {
+    await _pending(turn);
+    if (isContinuous(turn.sessionId) &&
+        recordsSupported &&
+        turn.settings.readJournalOnRequest) {
+      return false;
+    }
+    final table = db.assistantMessages;
+    final rows =
+        await (db.selectOnly(table)
+              ..addColumns([table.agentMetadata])
+              ..where(
+                table.owner.equals(owner) &
+                    table.sessionId.equals(turn.sessionId) &
+                    table.agentMetadata.isNotNull(),
+              ))
+            .get();
+    final withheld = rows.any(
+      (row) => AgentRunMetadata.decode(row.read(table.agentMetadata)!)
+          .readReceipts
+          .any(
+            (r) =>
+                (r['status'] == 'ok' || r['status'] == 'truncated') &&
+                (r['count'] as int) > 0,
+          ),
+    );
+    await _pending(turn);
+    return withheld;
+  });
+
+  Future<String> agentInput(
+    PendingAssistantTurn turn, {
+    bool recordsSupported = false,
+  }) => db.transaction(() async {
+    if (await shouldWithholdRecordHistory(
+      turn,
+      recordsSupported: recordsSupported,
+    )) {
+      final current = await _pending(turn);
       return jsonEncode({
-        'summary': context.summary,
-        'messages': context.messages,
+        if (isContinuous(turn.sessionId) && recordsSupported)
+          'context_version': 1,
+        'summary': null,
+        'messages': [
+          {'role': 'user', 'text': current.content},
+        ],
       });
-    },
-  );
+    }
+    final context = await input(turn, recordsSupported: recordsSupported);
+    if (context.needsSummary) {
+      // Agent summaries would be unmetered calls outside the six-call ledger.
+      throw const AssistantFailure(AssistantFailureKind.summary);
+    }
+    return jsonEncode({
+      if (isContinuous(turn.sessionId) && recordsSupported)
+        'context_version': 1,
+      'summary': context.summary,
+      'messages': context.messages,
+    });
+  });
 
   Future<void> recordAgentRequest(
     PendingAssistantTurn turn,
     AgentRequest request,
   ) => db.transaction(() async {
     final pending = await _pending(turn);
-    final valid = AgentRequest.fromJson(request.toJson());
+    final valid = parseAssistantAgentRequest(request.toJson());
     if (valid.requestId != turn.requestId ||
-        valid.messages.first['content'] != await agentInput(turn)) {
+        valid.messages.first['content'] !=
+            await agentInput(
+              turn,
+              recordsSupported: request is AssistantAgentRequest,
+            )) {
       throw const AssistantFailure(AssistantFailureKind.discarded);
     }
     if (pending.sentPayload != null) {
-      final previous = AgentRequest.fromJson(
+      final previous = parseAssistantAgentRequest(
         decodeAssistantJson(pending.sentPayload!),
       );
-      if (valid.turn != previous.turn + 1 ||
+      if (valid.toJson()['protocol'] != previous.toJson()['protocol'] ||
+          valid.turn != previous.turn + 1 ||
           agentCanonical(valid.now.toJson()) !=
               agentCanonical(previous.now.toJson()) ||
           (previous.runId != null && valid.runId != previous.runId) ||
@@ -508,6 +628,8 @@ class LocalConversationStore {
     required String text,
     required AgentRunMetadata metadata,
     PlanPreview? preview,
+    Map<String, dynamic>? diaryDraft,
+    String? memorySummary,
   }) => db.transaction(() async {
     final pending = await _pending(turn);
     if (pending.sentPayload == null ||
@@ -515,9 +637,15 @@ class LocalConversationStore {
         text.characters.length > 4000) {
       throw const FormatException('Invalid agent reply');
     }
-    final request = AgentRequest.fromJson(
+    final request = parseAssistantAgentRequest(
       decodeAssistantJson(pending.sentPayload!),
     );
+    if (memorySummary != null &&
+        (!isContinuous(turn.sessionId) ||
+            !assistantContextEnabled(request) ||
+            memorySummary.characters.length > assistantMemorySummaryLimit)) {
+      throw const FormatException('Invalid memory summary');
+    }
     final validMetadata = AgentRunMetadata.decode(metadata.encode());
     if (request.now.date != metadata.date) {
       throw const FormatException('Invalid agent date');
@@ -534,6 +662,26 @@ class LocalConversationStore {
       createdAt: _nextTimestamp(await _messages(turn.sessionId)),
     );
     await db.into(db.assistantMessages).insert(reply);
+    if (diaryDraft != null) {
+      assistantRecordDay(diaryDraft['day'], request.now.date);
+      final draftText = diaryDraft['text'] as String;
+      if (draftText.trim().isEmpty ||
+          draftText.characters.length > assistantDiaryDraftLimit) {
+        throw const FormatException('Invalid diary draft');
+      }
+      await db
+          .into(db.assistantDiaryProposals)
+          .insert(
+            AssistantDiaryProposalsCompanion.insert(
+              id: const Uuid().v4(),
+              owner: owner,
+              sessionId: turn.sessionId,
+              messageId: reply.id,
+              suggestedDay: Value(diaryDraft['day'] as String),
+              content: draftText,
+            ),
+          );
+    }
     final id = preview == null
         ? null
         : await proposals.saveDraft(
@@ -551,7 +699,17 @@ class LocalConversationStore {
     await (db.update(db.assistantSessions)..where(
           (row) => row.owner.equals(owner) & row.id.equals(turn.sessionId),
         ))
-        .write(AssistantSessionsCompanion(updatedAt: Value(reply.createdAt)));
+        .write(
+          AssistantSessionsCompanion(
+            updatedAt: Value(reply.createdAt),
+            summary:
+                memorySummary == null ||
+                    !turn.settings.autoMemory ||
+                    !turn.settings.sendMemories
+                ? const Value.absent()
+                : Value(memorySummary),
+          ),
+        );
     await _requireIdentity(turn);
     if (turn.cancellation.isCancelled) {
       throw const AssistantFailure(AssistantFailureKind.cancelled);
@@ -571,12 +729,22 @@ class LocalConversationStore {
       decodeAssistantJson(pending.sentPayload!),
     );
     final valid = TurnResponse.fromJson(response.toJson(), request: request);
+    final withheld = await shouldWithholdRecordHistory(
+      turn,
+      recordsSupported: false,
+    );
     final reply = StoredAssistantMessage(
       id: const Uuid().v4(),
       owner: owner,
       sessionId: turn.sessionId,
       role: 'assistant',
       content: valid.reply,
+      agentMetadata: withheld
+          ? AgentRunMetadata(
+              date: request.now.date,
+              recordHistoryWithheld: true,
+            ).encode()
+          : null,
       status: 'sent',
       requestId: turn.requestId,
       createdAt: _nextTimestamp(await _messages(turn.sessionId)),

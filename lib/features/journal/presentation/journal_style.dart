@@ -3,11 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../app/theme.dart';
 import '../../../shared/local_date.dart';
 
-/// Accent for 随手记, matching its entry bubble on 今天.
+/// Accent for 随手记, matching its entry bubble on 今天: the app's one accent.
 Color journalNoteTint(BuildContext context) =>
-    Theme.of(context).brightness == Brightness.dark
-    ? const Color(0xFFFF6B8E)
-    : const Color(0xFFF2557D);
+    Theme.of(context).colorScheme.primary;
 
 /// "10月23日"; earlier years keep the year: "2025年10月23日".
 String journalDayLabel(LocalDate day, {LocalDate? today}) {

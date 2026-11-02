@@ -33,6 +33,12 @@ class LocalAgentSource implements AgentDataSource {
     if (!await authorize('get_planning_preferences')) {
       throw const AgentToolStop('not_authorized');
     }
+    if (await store.shouldWithholdRecordHistory(
+      turn,
+      recordsSupported: false,
+    )) {
+      return const []; // Never leak derived memories through a fallback tool.
+    }
     final rows = await store.memories.forRequest();
     await authorize('get_planning_preferences');
     return [
@@ -82,7 +88,7 @@ Future<List<AgentScheduleItem>> loadAgentSchedule(
       } else if (!goal.isScheduledOn(day)) {
         continue;
       }
-      // A past planned time is not evidence of availability today.
+      // C36 treats overdue work as untimed today, retaining known duration.
       result.add(
         AgentScheduleItem(
           title: goal.titleOn(day),

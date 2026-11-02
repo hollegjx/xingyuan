@@ -72,6 +72,69 @@ class _GoalTimingFieldsState extends State<GoalTimingFields> {
     final xy = context.xy;
     final theme = Theme.of(context);
     final hasMinutes = _minutes.text.isNotEmpty;
+    final stacked = MediaQuery.textScalerOf(context).scale(16) > 26;
+    final minus = IconButton(
+      tooltip: '减少 5 分钟',
+      color: theme.colorScheme.primary,
+      onPressed: widget.enabled ? () => _step(-1) : null,
+      icon: const Icon(CupertinoIcons.minus_circle),
+    );
+    final field = TextFormField(
+      key: const ValueKey('duration-minutes'),
+      controller: _minutes,
+      enabled: widget.enabled,
+      keyboardType: TextInputType.number,
+      textAlign: TextAlign.center,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      style: theme.textTheme.titleMedium?.copyWith(
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+      decoration: InputDecoration(
+        hintText: '未设置',
+        errorMaxLines: 6,
+        fillColor: xy.fill,
+        isDense: true,
+        suffixText: hasMinutes ? '分钟' : null,
+      ),
+      onChanged: (value) {
+        setState(() {});
+        widget.onDurationChanged(int.tryParse(value));
+      },
+      validator: (value) {
+        final input = value ?? '';
+        final duration = int.tryParse(input);
+        if (input.isNotEmpty && duration == null) {
+          return '请输入有效分钟数';
+        }
+        try {
+          GoalTiming(
+            startMinute: widget.startMinute,
+            durationMinutes: duration,
+          );
+          return null;
+        } on FormatException catch (error) {
+          return error.message;
+        }
+      },
+    );
+    final plus = IconButton(
+      tooltip: '增加 5 分钟',
+      color: theme.colorScheme.primary,
+      onPressed: widget.enabled ? () => _step(1) : null,
+      icon: const Icon(CupertinoIcons.plus_circle),
+    );
+    final clear = IconButton(
+      tooltip: '清除预计分钟',
+      color: xy.faint,
+      onPressed: widget.enabled && hasMinutes
+          ? () {
+              _minutes.clear();
+              setState(() {});
+              widget.onDurationChanged(null);
+            }
+          : null,
+      icon: const Icon(CupertinoIcons.xmark_circle_fill, size: 20),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -117,75 +180,30 @@ class _GoalTimingFieldsState extends State<GoalTimingFields> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(8, 6, 6, 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconButton(
-                tooltip: '减少 5 分钟',
-                color: theme.colorScheme.primary,
-                onPressed: widget.enabled ? () => _step(-1) : null,
-                icon: const Icon(CupertinoIcons.minus_circle),
-              ),
-              Expanded(
-                child: TextFormField(
-                  key: const ValueKey('duration-minutes'),
-                  controller: _minutes,
-                  enabled: widget.enabled,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                  decoration: InputDecoration(
-                    hintText: '未设置',
-                    errorMaxLines: 6,
-                    fillColor: xy.fill,
-                    isDense: true,
-                    suffixText: hasMinutes ? '分钟' : null,
-                  ),
-                  onChanged: (value) {
-                    setState(() {});
-                    widget.onDurationChanged(int.tryParse(value));
-                  },
-                  validator: (value) {
-                    final input = value ?? '';
-                    final duration = int.tryParse(input);
-                    if (input.isNotEmpty && duration == null) {
-                      return '请输入有效分钟数';
-                    }
-                    try {
-                      GoalTiming(
-                        startMinute: widget.startMinute,
-                        durationMinutes: duration,
-                      );
-                      return null;
-                    } on FormatException catch (error) {
-                      return error.message;
-                    }
-                  },
+          // At large text the number gets its own line; the steppers follow.
+          child: stacked
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: field,
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [minus, plus, clear],
+                    ),
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    minus,
+                    Expanded(child: field),
+                    plus,
+                    clear,
+                  ],
                 ),
-              ),
-              IconButton(
-                tooltip: '增加 5 分钟',
-                color: theme.colorScheme.primary,
-                onPressed: widget.enabled ? () => _step(1) : null,
-                icon: const Icon(CupertinoIcons.plus_circle),
-              ),
-              IconButton(
-                tooltip: '清除预计分钟',
-                color: xy.faint,
-                onPressed: widget.enabled && hasMinutes
-                    ? () {
-                        _minutes.clear();
-                        setState(() {});
-                        widget.onDurationChanged(null);
-                      }
-                    : null,
-                icon: const Icon(CupertinoIcons.xmark_circle_fill, size: 20),
-              ),
-            ],
-          ),
         ),
       ],
     );

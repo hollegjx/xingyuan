@@ -237,7 +237,7 @@ void main() {
       container = ProviderScope.containerOf(
         tester.element(find.byType(HabitCheckinApp)),
       );
-      await tap(find.byTooltip('规划'));
+      await tap(find.byTooltip('助手'));
       final controller = await container.read(
         assistantConversationProvider.future,
       );

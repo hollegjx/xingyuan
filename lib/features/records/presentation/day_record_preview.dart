@@ -17,6 +17,8 @@ class DayRecordPreview extends ConsumerWidget {
     required this.title,
     required this.editable,
     this.showEmpty = false,
+    this.showSaved = true,
+    this.iconOnly = false,
     super.key,
   });
 
@@ -25,6 +27,12 @@ class DayRecordPreview extends ConsumerWidget {
   final String title;
   final bool editable;
   final bool showEmpty;
+
+  /// False leaves a saved note or draft to another preview of the same day.
+  final bool showSaved;
+
+  /// Shows the empty entry as a bare pencil, for the end of a row.
+  final bool iconOnly;
 
   void _open(BuildContext context) => Navigator.of(context).push(
     MaterialPageRoute<void>(
@@ -44,6 +52,7 @@ class DayRecordPreview extends ConsumerWidget {
     // Keep the last known records while a refresh is in flight.
     final records = ref.watch(dayRecordsProvider(day));
     if (records.hasError && !records.hasValue) {
+      if (iconOnly) return const SizedBox.shrink();
       return Align(
         alignment: Alignment.centerLeft,
         child: TextButton.icon(
@@ -64,6 +73,15 @@ class DayRecordPreview extends ConsumerWidget {
     if (!showEmpty && !saved && !draft) return const SizedBox.shrink();
     final key = ValueKey('record-$goalId-${day.key}');
     if (!saved && !draft) {
+      if (iconOnly) {
+        return IconButton(
+          key: key,
+          tooltip: '写记录',
+          color: xy.faint,
+          onPressed: () => _open(context),
+          icon: const Icon(CupertinoIcons.square_pencil, size: 20),
+        );
+      }
       return Align(
         alignment: Alignment.centerLeft,
         child: TextButton.icon(
@@ -73,13 +91,15 @@ class DayRecordPreview extends ConsumerWidget {
             padding: const EdgeInsets.only(right: 8),
             minimumSize: const Size(44, 36),
             tapTargetSize: MaterialTapTargetSize.padded,
-            textStyle: theme.textTheme.bodyMedium,
+            foregroundColor: xy.muted,
+            textStyle: theme.textTheme.bodySmall,
           ),
-          icon: const Icon(CupertinoIcons.square_pencil, size: 17),
+          icon: const Icon(CupertinoIcons.square_pencil, size: 15),
           label: const Text('写记录'),
         ),
       );
     }
+    if (!showSaved) return const SizedBox.shrink();
     final record = snapshot!.record;
     final shared = saved && record.syncState != 'local';
     return Padding(

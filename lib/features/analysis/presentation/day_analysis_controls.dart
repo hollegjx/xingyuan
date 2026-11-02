@@ -27,12 +27,12 @@ class DayAnalysisButton extends ConsumerWidget {
       message: '分析今天',
       excludeFromSemantics: true,
       child: Material(
-        color: xy.onSky.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(12),
+        color: xy.cardSoft,
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
           key: const ValueKey('open-day-analysis'),
-          borderRadius: BorderRadius.circular(12),
-          highlightColor: xy.onSky.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          highlightColor: theme.colorScheme.onSurface.withValues(alpha: 0.06),
           onTap: () => Navigator.of(context).push(
             MaterialPageRoute<void>(builder: (_) => const DayAnalysisPage()),
           ),
@@ -46,26 +46,17 @@ class DayAnalysisButton extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '今日星语',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: xy.onSky,
-                        ),
-                      ),
+                      Text('今日星语', style: theme.textTheme.titleSmall),
                       Text(
                         '让星愿读一读今天，给你写几句话',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: xy.onSkyMuted,
+                          color: xy.muted,
                         ),
                       ),
                     ],
                   ),
                 ),
-                Icon(
-                  CupertinoIcons.chevron_right,
-                  size: 15,
-                  color: xy.onSkyMuted,
-                ),
+                Icon(CupertinoIcons.chevron_right, size: 15, color: xy.faint),
               ],
             ),
           ),

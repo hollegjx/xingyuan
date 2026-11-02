@@ -228,7 +228,7 @@ void main() {
         await back();
         debugPrint('TIMING_CHECK manual-create-edit-clear PASS');
 
-        await tap(find.byTooltip('规划'));
+        await tap(find.byTooltip('助手'));
         await tap(find.byKey(const ValueKey('assistant-consent-confirm')));
         final controller = await container.read(
           assistantConversationProvider.future,
@@ -288,7 +288,7 @@ void main() {
         await tap(find.byKey(const ValueKey('assistant-save-plan-item')));
         expect(await goals.loadGoals(), hasLength(3));
         await tap(find.byKey(const ValueKey('assistant-apply-plan')));
-        expect(find.text('已创建 3 项'), findsOneWidget);
+        expect(find.text('已添加 3 项'), findsOneWidget);
         expect(await goals.loadGoals(), hasLength(6));
         await back();
         await tap(find.byTooltip('今天'));

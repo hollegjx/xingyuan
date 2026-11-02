@@ -4,6 +4,7 @@ import 'assistant_service.dart';
 import 'local_conversation_store.dart';
 import '../domain/agent_run_metadata.dart';
 import 'agent_conversation_runner.dart';
+import 'assistant_record_tools.dart';
 
 import 'package:xingyuan_core/xingyuan_core.dart';
 
@@ -27,11 +28,25 @@ class AssistantConversationRunner {
   Future<CommittedAssistantTurn> run(
     PendingAssistantTurn turn, {
     void Function(AssistantRunStage stage)? onStage,
+    ConfirmAssistantRead? confirmRead,
+    AssistantRecordScope? recordScope,
     void Function(AgentRunMetadata metadata)? onProgress,
     void Function(AgentToolCall, Map<String, dynamic>)? onToolResult,
     void Function(String)? onStop,
     void Function(int, String)? onRequestRejected,
   }) async {
+    Future<void> recordFailure({bool discarded = false}) async {
+      turn.cancellation.cancel();
+      try {
+        await store
+            .fail(turn, discarded: discarded)
+            .timeout(const Duration(seconds: 5));
+      } catch (_) {
+        // A locked/unavailable store must not hide the original failure.
+        // Pending rows remain recoverable; late writes are request-ID scoped.
+      }
+    }
+
     try {
       if (!service.configured) {
         throw const AssistantFailure(AssistantFailureKind.unconfigured);
@@ -44,6 +59,8 @@ class AssistantConversationRunner {
         ).run(
           turn,
           onStage: onStage,
+          confirmRead: confirmRead,
+          recordScope: recordScope,
           onProgress: onProgress,
           onToolResult: onToolResult,
           onStop: onStop,
@@ -87,8 +104,7 @@ class AssistantConversationRunner {
       onStage?.call(AssistantRunStage.saving);
       return await store.commitResponse(turn, response);
     } on AssistantFailure catch (error) {
-      await store.fail(
-        turn,
+      await recordFailure(
         discarded: {
           AssistantFailureKind.cancelled,
           AssistantFailureKind.discarded,
@@ -98,10 +114,10 @@ class AssistantConversationRunner {
     } on StaleIdentity {
       throw const AssistantFailure(AssistantFailureKind.discarded);
     } on FormatException {
-      await store.fail(turn);
+      await recordFailure();
       throw const AssistantFailure(AssistantFailureKind.invalidResponse);
     } catch (_) {
-      await store.fail(turn);
+      await recordFailure();
       rethrow;
     }
   }

@@ -69,37 +69,32 @@ void main() {
 
   test('daily cap counts scheduled duration even outside search window', () {
     final result = slots([busy(300, 60), busy(null, 30)], cap: 120);
-    expect(result['status'], 'partial');
+    // C36 owner decision: untimed minutes count without making the day unknown.
+    expect(result['status'], 'ok');
     expect(values(result, 'slots'), hasLength(1));
-    expect(values(result, 'unknown_dates'), [today.key]);
+    expect(values(result, 'unknown_dates'), isEmpty);
     expect(values(slots([busy(300, 120)], cap: 120), 'slots'), isEmpty);
   });
 
-  test(
-    'missing either field remains unknown; a known next day stays complete',
-    () {
-      final result = slots([busy(null, 30), busy(620, null)], days: 1);
-      expect(result['status'], 'partial');
-      expect(values(result, 'unknown_dates'), [today.key]);
-      expect(values(result, 'slots').last['date'], today.addDays(1).key);
-    },
-  );
+  test('C36 untimed is flexible and missing duration reserves an hour', () {
+    final result = slots([busy(null, 30), busy(620, null)], days: 1);
+    expect(result['status'], 'ok');
+    expect(values(result, 'unknown_dates'), isEmpty);
+    expect(values(result, 'slots').last['date'], today.addDays(1).key);
+  });
 
-  test(
-    '20 is complete, 21 truncates; unknown dates beyond cap are retained',
-    () {
-      expect(slots([], start: 0, end: 600)['status'], 'ok');
-      final result = slots(
-        [busy(null, null, day: 14)],
-        start: 0,
-        end: 1440,
-        days: 14,
-      );
-      expect(result['status'], 'truncated');
-      expect(values(result, 'slots'), hasLength(20));
-      expect(values(result, 'unknown_dates'), [today.addDays(14).key]);
-    },
-  );
+  test('20 is complete, 21 truncates; C36 untimed dates are not unknown', () {
+    expect(slots([], start: 0, end: 600)['status'], 'ok');
+    final result = slots(
+      [busy(null, null, day: 14)],
+      start: 0,
+      end: 1440,
+      days: 14,
+    );
+    expect(result['status'], 'truncated');
+    expect(values(result, 'slots'), hasLength(20));
+    expect(values(result, 'unknown_dates'), isEmpty);
+  });
 
   test('slot output is deterministic under every input order', () {
     final rows = [busy(600, 45), busy(540, 30), busy(630, 60)];
@@ -199,14 +194,14 @@ void main() {
     () {
       final result = validate(
         [item(600, 30), item(600, 30, day: 1)],
-        schedule: [busy(null, null)],
+        schedule: [busy(600, null)],
       );
       expect(result.status, 'partial');
       expect(result.partialIndexes, {0});
       expect(
         validate(
           [item(600, 30)],
-          schedule: [busy(null, null), busy(600, 30)],
+          schedule: [busy(600, null), busy(600, 30)],
         ).status,
         'invalid',
       );

@@ -60,11 +60,15 @@ class AssistantService {
           '/v1/polish-note',
           '/v1/generate-diary',
           '/v1/agent/turn',
+          '/v2/agent/turn',
+          '/v2/agent/capabilities',
           '/v1/health',
         ].contains(incoming.uri.path)
         ? incoming.uri.path
         : 'unknown';
-    final agentRoute = route == '/v1/agent/turn';
+    final extendedRoute = route == '/v2/agent/turn';
+    final capabilityRoute = route == '/v2/agent/capabilities';
+    final agentRoute = route == '/v1/agent/turn' || extendedRoute;
     final bodyLimit = agentRoute ? agentBodyLimit - 1 : assistantBodyLimit;
     Future<void> respond(int code, Map<String, Object?> body) async {
       status = code;
@@ -101,8 +105,10 @@ class AssistantService {
             '/v1/polish-note',
             '/v1/generate-diary',
             '/v1/agent/turn',
+            '/v2/agent/turn',
+            '/v2/agent/capabilities',
           ].contains(route) ||
-          incoming.method != 'POST') {
+          incoming.method != (capabilityRoute ? 'GET' : 'POST')) {
         await respond(404, {'error': 'not_found'});
         return;
       }
@@ -111,6 +117,21 @@ class AssistantService {
       );
       if (device == null) {
         await respond(401, {'error': 'unauthorized'});
+        return;
+      }
+      if (capabilityRoute) {
+        if (incoming.contentLength > 0 ||
+            incoming.headers.chunkedTransferEncoding) {
+          bodySubscription = incoming.listen((_) {}, onError: (Object _) {});
+          await respond(400, {'error': 'body_not_allowed'});
+        } else if (agent == null) {
+          await respond(503, {'error': 'agent_unavailable'});
+        } else {
+          await respond(200, {
+            'protocol': assistantAgentProtocol,
+            'tools': assistantAgentTools,
+          });
+        }
         return;
       }
       if ((_active[device] ?? 0) >= 2) {
@@ -171,7 +192,9 @@ class AssistantService {
           await respond(503, {'error': 'agent_unavailable'});
           return;
         }
-        final request = AgentRequest.fromJson(payload);
+        final AgentRequest request = extendedRoute
+            ? AssistantAgentRequest.fromJson(payload)
+            : AgentRequest.fromJson(payload);
         final generated = await runner.turn(device, request);
         attempts = 1;
         usage = generated.usage;
@@ -259,7 +282,7 @@ class AssistantService {
     } on AgentFailure catch (error) {
       agentMetadata = {'kind': 'stopped', 'stop_code': error.code};
       await respond(error.status, {
-        'protocol': agentProtocol,
+        'protocol': extendedRoute ? assistantAgentProtocol : agentProtocol,
         'kind': 'stopped',
         'code': error.code,
       });
@@ -294,6 +317,7 @@ class AssistantService {
       log({
         'time': DateTime.now().toUtc().toIso8601String(),
         if (!agentRoute &&
+            !capabilityRoute &&
             route != '/v1/polish-note' &&
             route != '/v1/generate-diary') ...{
           'request_id': requestId,

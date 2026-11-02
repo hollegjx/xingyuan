@@ -162,7 +162,7 @@ Object? canonical(Object? value) {
 
 bool allowedEndpoint(Uri uri) =>
     uri.scheme == 'https' &&
-    uri.host == 'model.example.invalid' &&
+    uri.host == 'model-relay.example.com' &&
     uri.port == 443 &&
     uri.path == '/v1/chat/completions' &&
     uri.userInfo.isEmpty &&

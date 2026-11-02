@@ -64,7 +64,7 @@ void main() {
         assistantService: service,
         assistantCredentials: ConversationTestCredentials(),
       );
-      await tapVisible(tester, find.byTooltip('规划'));
+      await tapVisible(tester, find.byTooltip('助手'));
       await tapVisible(
         tester,
         find.byKey(const ValueKey('assistant-consent-confirm')),
@@ -77,7 +77,7 @@ void main() {
       expect(tester.testTextInput.isVisible, isTrue);
       await tapVisible(tester, find.byTooltip('今天'));
       expect(tester.testTextInput.isVisible, isFalse);
-      await tapVisible(tester, find.byTooltip('规划'));
+      await tapVisible(tester, find.byTooltip('助手'));
       expect(tester.testTextInput.isVisible, isFalse);
       expect(
         tester.widget<TextField>(field).controller!.text,

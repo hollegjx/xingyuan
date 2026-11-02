@@ -138,8 +138,10 @@ class JournalPreviewTile extends StatelessWidget {
               : text.trim(),
           maxLines: diary ? 3 : 4,
           overflow: TextOverflow.ellipsis,
+          // Written words read in the serif, as they were written.
           style: theme.textTheme.bodyLarge?.copyWith(
-            height: 1.45,
+            fontFamily: blank ? null : xySerif,
+            height: 1.7,
             color: blank ? xy.muted : null,
           ),
         ),
@@ -358,7 +360,11 @@ class _JournalListPageState extends ConsumerState<JournalListPage> {
                 ],
                 data: (rows) => [
                   if (rows.isEmpty)
-                    const StatusPanel(message: '还没有内容')
+                    StatusPanel(
+                      message: widget.kind == JournalKind.diary
+                          ? '还没有日记。点右上角，写下第一篇。'
+                          : '还没有随手记。想到什么，就记一笔。',
+                    )
                   else
                     ...journalGroups(
                       context,

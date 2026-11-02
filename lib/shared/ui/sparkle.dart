@@ -201,14 +201,21 @@ class _StarCheckButtonState extends State<StarCheckButton>
                   : AnimatedScale(
                       scale: _pressed ? 0.86 : 1,
                       duration: const Duration(milliseconds: 120),
-                      child: ScaleTransition(
-                        scale: _scale,
-                        child: StarMark(
-                          lit: widget.lit,
-                          size: widget.size,
-                          outline: enabled
-                              ? Theme.of(context).colorScheme.primary
-                              : xy.faint,
+                      child: CustomPaint(
+                        // A ring of golden motes flies out as the star lights.
+                        foregroundPainter: _MotePainter(
+                          progress: _pop,
+                          color: xy.star,
+                        ),
+                        child: ScaleTransition(
+                          scale: _scale,
+                          child: StarMark(
+                            lit: widget.lit,
+                            size: widget.size,
+                            outline: enabled
+                                ? Theme.of(context).colorScheme.primary
+                                : xy.faint,
+                          ),
                         ),
                       ),
                     ),
@@ -218,6 +225,35 @@ class _StarCheckButtonState extends State<StarCheckButton>
       ),
     );
   }
+}
+
+class _MotePainter extends CustomPainter {
+  _MotePainter({required this.progress, required this.color})
+    : super(repaint: progress);
+
+  final Animation<double> progress;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final t = progress.value;
+    if (t <= 0 || t >= 1) return;
+    final eased = Curves.easeOutCubic.transform(t);
+    final center = size.center(Offset.zero);
+    for (var i = 0; i < 10; i++) {
+      final angle = i * math.pi / 5 + 0.2;
+      final reach = size.shortestSide * (0.45 + 0.65 * eased);
+      final at = center + Offset(math.cos(angle), math.sin(angle)) * reach;
+      canvas.drawCircle(
+        at,
+        (i.isEven ? 1.9 : 1.3) * (1 - t) + 0.3,
+        Paint()..color = color.withValues(alpha: 1 - t),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MotePainter old) => old.color != color;
 }
 
 /// A row of small stars showing how much of today is lit.

@@ -8,6 +8,76 @@ import 'support/agent_fixtures.dart';
 
 void main() {
   final today = CalendarDate(2026, 10, 27);
+  test('C37 untimed query must retain partial in deployed strict history', () {
+    for (final status in ['ok', 'partial']) {
+      final result = {
+        'status': status,
+        'data': {
+          'items': [
+            {
+              'title': 'TEST flexible',
+              'date': today.key,
+              'start_minute': null,
+              'minutes': 30,
+            },
+          ],
+        },
+      };
+      final request = agentContinue(agentFixture(), {
+        'run_id': 'run_one',
+        'tool_call': agentCall(id: agentCallId('run_one', 1)),
+      }, result);
+      if (status == 'ok') {
+        expect(() => AgentRequest.fromJson(request), throwsFormatException);
+      } else {
+        expect(AgentRequest.fromJson(request).results.single, result);
+      }
+    }
+  });
+
+  test(
+    'C37 local with is rejected by the unchanged deployed wire contract',
+    () {
+      final reference = {'title': 'e\u0301' * 60, 'start_minute': 420};
+      for (final withReference in [false, true]) {
+        final result = {
+          'status': 'partial',
+          'data': {
+            'issues': [
+              {
+                'index': 0,
+                'code': 'unknown_schedule',
+                if (withReference) 'with': reference,
+              },
+            ],
+          },
+        };
+        final request = agentContinue(agentFixture(), {
+          'run_id': 'run_one',
+          'tool_call': agentCall(
+            id: agentCallId('run_one', 1),
+            name: 'validate_plan',
+            arguments: {
+              'items': [
+                {
+                  'title': 'TEST new',
+                  'date': today.key,
+                  'start_minute': 450,
+                  'minutes': 30,
+                },
+              ],
+            },
+          ),
+        }, result);
+        if (withReference) {
+          expect(() => AgentRequest.fromJson(request), throwsFormatException);
+        } else {
+          expect(AgentRequest.fromJson(request).results.single, result);
+        }
+      }
+    },
+  );
+
   test('user-visible text bounds count graphemes, not Unicode scalars', () {
     final title = 'e\u0301' * 60;
     final call = agentCall(

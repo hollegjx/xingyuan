@@ -10,9 +10,11 @@ class _StarFieldPainter extends CustomPainter {
     required this.dim,
     required this.bright,
     required this.gold,
+    this.density = 2600,
   });
 
   final int seed;
+  final double density;
   final Color dim;
   final Color bright;
   final Color gold;
@@ -20,7 +22,7 @@ class _StarFieldPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final random = math.Random(seed);
-    final count = (size.width * size.height / 2600).clamp(12, 70).round();
+    final count = (size.width * size.height / density).clamp(8, 70).round();
     for (var i = 0; i < count; i++) {
       final at = Offset(
         random.nextDouble() * size.width,
@@ -36,12 +38,14 @@ class _StarFieldPainter extends CustomPainter {
   @override
   bool shouldRepaint(_StarFieldPainter old) =>
       old.seed != seed ||
+      old.density != density ||
       old.dim != dim ||
       old.bright != bright ||
       old.gold != gold;
 }
 
-/// A night-sky band. Text on it should use [XyColors.onSky].
+/// The 星愿 sky band: a pale dawn wash with a few faint stars in light mode,
+/// a deep night in dark mode. Text on it should use [XyColors.onSky].
 class SkyPanel extends StatelessWidget {
   const SkyPanel({
     required this.child,
@@ -59,21 +63,27 @@ class SkyPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final xy = context.xy;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return ClipRRect(
       borderRadius: radius,
       child: DecoratedBox(
         decoration: BoxDecoration(
+          borderRadius: radius,
+          border: Border.all(color: xy.skyLine),
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
             colors: [xy.skyDeep, xy.sky],
           ),
         ),
         child: CustomPaint(
           painter: _StarFieldPainter(
             seed: seed,
-            dim: xy.onSkyMuted.withValues(alpha: 0.35),
-            bright: xy.onSky.withValues(alpha: 0.7),
+            density: dark ? 2600 : 5200,
+            dim: xy.onSkyMuted.withValues(alpha: dark ? 0.35 : 0.22),
+            bright: dark
+                ? xy.onSky.withValues(alpha: 0.7)
+                : xy.star.withValues(alpha: 0.45),
             gold: xy.star,
           ),
           child: DefaultTextStyle.merge(
@@ -113,13 +123,17 @@ class SkyPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final xy = context.xy;
-    final foreground = emphasis ? xy.sky : xy.onSky;
+    final scheme = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final foreground = emphasis ? scheme.onPrimary : xy.onSky;
     final child = Material(
-      color: emphasis ? xy.onSky : xy.onSky.withValues(alpha: 0.12),
+      color: emphasis
+          ? scheme.primary
+          : (dark
+                ? xy.onSky.withValues(alpha: 0.10)
+                : xy.card.withValues(alpha: 0.8)),
       shape: StadiumBorder(
-        side: emphasis
-            ? BorderSide.none
-            : BorderSide(color: xy.onSky.withValues(alpha: 0.22)),
+        side: emphasis ? BorderSide.none : BorderSide(color: xy.skyLine),
       ),
       child: InkWell(
         customBorder: const StadiumBorder(),

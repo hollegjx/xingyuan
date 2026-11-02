@@ -69,13 +69,8 @@ class AgentToolExecutor {
     if (!await source.authorize(call.name)) {
       throw const AgentToolStop('authorization_changed');
     }
-    final validated = validateAgentResult(
-      result,
-      call.name,
-      today,
-      allowDuplicate: false,
-    );
-    _cache[key] = agentCanonical(validated);
+    agentResultForWire(result, call.name, today, allowDuplicate: false);
+    _cache[key] = agentCanonical(result);
     return jsonDecode(_cache[key]!) as Map<String, dynamic>;
   }
 
@@ -131,7 +126,7 @@ class AgentToolExecutor {
       return agentResult(
         rows.length > 60
             ? 'truncated'
-            : rows.any((row) => row.incomplete)
+            : rows.any((row) => row.startMinute == null || row.minutes == null)
             ? 'partial'
             : 'ok',
         {'items': rows.take(60).map((row) => row.toJson()).toList()},

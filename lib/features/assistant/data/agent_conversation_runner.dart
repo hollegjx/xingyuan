@@ -3,9 +3,11 @@ import 'dart:convert';
 
 import 'package:xingyuan_core/xingyuan_core.dart';
 
+import '../domain/agent_planning.dart';
 import '../domain/agent_run_metadata.dart';
 import '../domain/plan_preview.dart';
 import 'agent_tool_executor.dart';
+import 'assistant_record_tools.dart';
 import 'assistant_conversation_runner.dart';
 import 'assistant_service.dart';
 import 'local_agent_source.dart';
@@ -45,7 +47,7 @@ String _invalidPlanMessage(Map<String, dynamic> result) => [
       'conflict' => '与已有安排或计划内其他项冲突',
       'duplicate' => '同一天有重复安排',
       'daily_cap' => '超过每日时长上限',
-      'unknown_schedule' => '已有安排不完整，无法判断冲突',
+      'unknown_schedule' => agentUnknownScheduleMessage(issue),
       _ => '日期、开始时间或时长无效',
     }}',
 ].join('\n');
@@ -63,6 +65,8 @@ class AgentConversationRunner {
   Future<CommittedAssistantTurn> run(
     PendingAssistantTurn turn, {
     void Function(AssistantRunStage)? onStage,
+    ConfirmAssistantRead? confirmRead,
+    AssistantRecordScope? recordScope,
     void Function(AgentRunMetadata)? onProgress,
     void Function(AgentToolCall, Map<String, dynamic>)? onToolResult,
     void Function(String)? onStop,
@@ -81,6 +85,16 @@ class AgentConversationRunner {
       source: LocalAgentSource(store, turn),
       today: date,
     );
+    final records = AssistantRecordTools(
+      store,
+      turn,
+      date,
+      confirm: confirmRead,
+      scope: recordScope,
+    );
+    var extended = false;
+    var fallback = false;
+    var historyWithheld = false;
     final trace = <AgentTraceEntry>[];
     final statuses = <String>{};
     Set<int> partial = {};
@@ -99,6 +113,9 @@ class AgentConversationRunner {
       trace: trace,
       partial: partial,
       dailyCaps: executor.dailyCaps,
+      readReceipts: records.receipts,
+      assistantFallback: fallback,
+      recordHistoryWithheld: historyWithheld,
     );
     Future<void> check() async {
       if (ended || discarded) {
@@ -107,8 +124,12 @@ class AgentConversationRunner {
       if (turn.cancellation.isCancelled) {
         throw const AssistantFailure(AssistantFailureKind.cancelled);
       }
-      if (!await store.isCurrent(turn)) {
+      final current = await store.isCurrent(turn);
+      if (ended || discarded || !current) {
         throw const AssistantFailure(AssistantFailureKind.discarded);
+      }
+      if (turn.cancellation.isCancelled) {
+        throw const AssistantFailure(AssistantFailureKind.cancelled);
       }
     }
 
@@ -141,11 +162,20 @@ class AgentConversationRunner {
         remainingMs,
       );
       if (remaining <= 0) {
+        turn.cancellation.cancel();
         throw const AssistantFailure(AssistantFailureKind.timeout);
       }
+      Future<T> perform() async {
+        final result = await action();
+        // A commit consumes the pending turn and checks identity atomically.
+        // All other final checks share the action's deadline and cancellation.
+        if (!commitsTurn) await check();
+        return result;
+      }
+
       try {
-        final result = await Future.any<T>([
-          action(),
+        return await Future.any<T>([
+          perform(),
           turn.cancellation.whenCancelled.then<T>((_) {
             throw AssistantFailure(
               discarded
@@ -154,10 +184,6 @@ class AgentConversationRunner {
             );
           }),
         ]).timeout(Duration(milliseconds: remaining));
-        // A successful commit consumes the pending turn. Its transaction
-        // performs the final identity/cancellation checks before committing.
-        if (!commitsTurn) await check();
-        return result;
       } on TimeoutException {
         turn.cancellation.cancel();
         throw const AssistantFailure(AssistantFailureKind.timeout);
@@ -177,6 +203,8 @@ class AgentConversationRunner {
     Future<CommittedAssistantTurn> finish(
       String text, {
       PlanPreview? preview,
+      Map<String, dynamic>? diaryDraft,
+      String? memorySummary,
     }) => bounded(() async {
       await check();
       onStage?.call(
@@ -190,6 +218,8 @@ class AgentConversationRunner {
         text: text,
         metadata: metadata(),
         preview: preview,
+        diaryDraft: diaryDraft,
+        memorySummary: memorySummary,
       );
     }, commitsTurn: true);
 
@@ -206,10 +236,31 @@ class AgentConversationRunner {
             .watch()
             .listen(invalidate, onError: invalidate),
       );
-      await check();
-      messages.add({'role': 'user', 'content': await store.agentInput(turn)});
+      await bounded(check);
+      final capability = service;
+      extended =
+          capability is AssistantAgentCapability &&
+          await bounded(
+            () =>
+                (capability as AssistantAgentCapability).supportsAssistantTools(
+                  access: store.access(turn),
+                  cancellation: turn.cancellation,
+                ),
+          );
+      fallback = !extended;
+      historyWithheld = await bounded(
+        () =>
+            store.shouldWithholdRecordHistory(turn, recordsSupported: extended),
+      );
+      onProgress?.call(metadata());
+      messages.add({
+        'role': 'user',
+        'content': await bounded(
+          () => store.agentInput(turn, recordsSupported: extended),
+        ),
+      });
       for (var round = 1; round <= agentCallLimit; round++) {
-        await check();
+        await bounded(check);
         if (timer.elapsedMilliseconds >= deadline) {
           if (runId == null) {
             throw const AssistantFailure(AssistantFailureKind.timeout);
@@ -217,7 +268,7 @@ class AgentConversationRunner {
           return await finish(stop('run_deadline'));
         }
         final envelope = <String, dynamic>{
-          'protocol': agentProtocol,
+          'protocol': extended ? assistantAgentProtocol : agentProtocol,
           'request_id': turn.requestId,
           'run_id': runId,
           'turn': round,
@@ -238,7 +289,7 @@ class AgentConversationRunner {
           onRequestRejected?.call(envelopeBytes, 'model_request_too_large');
           throw const AssistantFailure(AssistantFailureKind.tooLarge);
         }
-        final request = AgentRequest.fromJson(envelope);
+        final request = parseAssistantAgentRequest(envelope);
         final bytes = utf8.encode(jsonEncode(request.toJson())).length;
         if (bytes >= agentBodyLimit) {
           onRequestRejected?.call(bytes, 'model_request_too_large');
@@ -252,11 +303,12 @@ class AgentConversationRunner {
           }
           return await finish(stop('token_budget'));
         }
-        await store.recordAgentRequest(turn, request);
+        await bounded(() => store.recordAgentRequest(turn, request));
         onStage?.call(
           repairing ? AssistantRunStage.adjusting : AssistantRunStage.sending,
         );
-        final response = AgentTurnResponse.fromJson(
+        await records.check();
+        final response = parseAssistantAgentResponse(
           (await bounded(
             () => service.agentTurn(
               request,
@@ -278,7 +330,12 @@ class AgentConversationRunner {
           return await finish(stop(response.code!));
         }
         if (response.kind == 'text' || response.kind == 'question') {
-          return await finish(response.text!);
+          return await finish(
+            response.text!,
+            memorySummary: response is AssistantAgentResponse
+                ? response.memorySummary
+                : null,
+          );
         }
         final call = response.call!;
         onStage?.call(switch (call.name) {
@@ -288,11 +345,17 @@ class AgentConversationRunner {
           _ => AssistantRunStage.validating,
         });
         final started = timer.elapsedMilliseconds;
-        final result = await bounded(() => executor.execute(call));
+        final result = await bounded(
+          () => agentTools.contains(call.name)
+              ? executor.execute(call)
+              : records.execute(call),
+        );
         // Optional in-process observation; never persisted or logged by the app.
         if (onToolResult != null) {
           onToolResult(
-            AgentToolCall.parse(call.toJson(), date),
+            extended
+                ? AssistantAgentCall.parse(call.toJson(), date)
+                : AgentToolCall.parse(call.toJson(), date),
             jsonDecode(jsonEncode(result)) as Map<String, dynamic>,
           );
         }
@@ -309,6 +372,12 @@ class AgentConversationRunner {
           ),
         );
         onProgress?.call(metadata());
+        if (call.name == 'create_diary_draft' && status == 'ok') {
+          return await finish(
+            '日记建议已生成，尚未保存。请打开预览后确认。',
+            diaryDraft: records.diaryDraft,
+          );
+        }
         if (call.name == 'submit_plan_draft') {
           if (status == 'ok' || status == 'partial') {
             // execute(submit) validates this exact draft against fresh, full data.
@@ -343,7 +412,11 @@ class AgentConversationRunner {
         messages.add({
           'role': 'tool',
           'tool_call_id': call.id,
-          'content': agentCanonical(result),
+          'content': agentCanonical(
+            agentTools.contains(call.name)
+                ? agentResultForWire(result, call.name, date)
+                : validateAssistantAgentResult(result, call.name, date),
+          ),
         });
       }
       return await finish(stop('run_calls'));

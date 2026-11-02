@@ -320,7 +320,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(QueryExecutor executor) : super(_guardOpening(executor));
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -329,7 +329,7 @@ class AppDatabase extends _$AppDatabase {
       await into(identityStates).insert(const IdentityStatesCompanion());
     },
     onUpgrade: (migrator, from, to) async {
-      if (from < 1 || from > 12 || to != 13) {
+      if (from < 1 || from > 13 || to != 14) {
         throw StateError('No migration registered from $from to $to');
       }
       if (from >= 3) {
@@ -348,7 +348,7 @@ class AppDatabase extends _$AppDatabase {
           if (from < 10) await _createChatTables(migrator);
           if (from < 11) await _createJournalTables(migrator);
           if (from < 12) await _createDiaryProposalTable(migrator);
-          if (from >= 5) {
+          if (from >= 5 && from < 13) {
             await migrator.addColumn(
               assistantSettings,
               assistantSettings.agentEnabled,
@@ -360,6 +360,16 @@ class AppDatabase extends _$AppDatabase {
             await migrator.addColumn(
               planProposals,
               planProposals.agentMetadata,
+            );
+          }
+          if (from >= 5) {
+            await migrator.addColumn(
+              assistantSettings,
+              assistantSettings.readJournalOnRequest,
+            );
+            await migrator.addColumn(
+              assistantSettings,
+              assistantSettings.settingsRevision,
             );
           }
           if ((await customSelect(

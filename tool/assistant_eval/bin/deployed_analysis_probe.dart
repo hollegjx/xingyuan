@@ -36,7 +36,7 @@ Future<void> main(List<String> args) async {
     String? origin,
   }) async {
     final outgoing = await client.postUrl(
-      Uri.https('assistant.example.invalid', '/v1/analyze-day'),
+      Uri.https('assistant.example.com', '/v1/analyze-day'),
     );
     outgoing.followRedirects = false;
     outgoing.headers.contentType = ContentType.json;

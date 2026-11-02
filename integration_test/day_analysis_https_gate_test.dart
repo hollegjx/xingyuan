@@ -44,7 +44,7 @@ void main() {
     expect(RegExp(r'^[A-Za-z0-9-]{8,60}$').hasMatch(run), true);
     expect({'submit', 'reopen'}, contains(phase));
     const address = String.fromEnvironment('ASSISTANT_BASE_URL');
-    expect(address, 'https://assistant.example.invalid');
+    expect(address, 'https://assistant.example.com');
     final documents = await getApplicationDocumentsDirectory();
     final bootstrap = File('${documents.path}/analysis-https-$run.credential');
     String? token;

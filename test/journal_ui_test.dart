@@ -13,7 +13,6 @@ import 'package:habit_checkin/features/journal/journal_providers.dart';
 import 'package:habit_checkin/features/journal/presentation/journal_editor_page.dart';
 import 'package:habit_checkin/features/journal/presentation/journal_list_page.dart';
 import 'package:habit_checkin/features/goals/presentation/goal_form_page.dart';
-import 'package:habit_checkin/features/goals/domain/goal.dart';
 import 'package:uuid/uuid.dart';
 import 'package:image/image.dart' as img;
 import 'package:timezone/data/latest.dart' as tzdata;
@@ -121,15 +120,15 @@ void main() {
       await goBack(tester);
       await goBack(tester);
       await tapVisible(tester, key('my-quick-notes'));
-      expect(find.text('还没有内容'), findsOneWidget);
+      expect(find.text('还没有随手记。想到什么，就记一笔。'), findsOneWidget);
     },
   );
 
   testUiWidgets(
-    'check-in with no goals opens form; all former settings remain in My',
+    'new-goal with no goals opens form; all former settings remain in My',
     (tester) async {
       final h = await mount(tester);
-      await tapVisible(tester, key('entry-check-in'));
+      await tapVisible(tester, key('entry-new-goal'));
       expect(find.byType(GoalFormPage), findsOneWidget);
       await goBack(tester);
       await tapVisible(tester, find.byTooltip('我的'));
@@ -260,21 +259,6 @@ void main() {
       );
     },
   );
-
-  testUiWidgets('check-in entry scrolls to goals without completing them', (
-    tester,
-  ) async {
-    final h = await mount(tester);
-    final id = await h.repository.create(
-      const GoalDraft(title: 'SYNTHETIC goal', kind: GoalKind.habit),
-    );
-    await tester.pumpAndSettle();
-    await tapVisible(tester, key('entry-check-in'));
-    expect(find.text('今天的目标').hitTestable(), findsOneWidget);
-    expect((await h.repository.loadGoals()).single.completions, isEmpty);
-    await tapVisible(tester, key('complete-$id'));
-    expect((await h.repository.loadGoals()).single.completions, hasLength(1));
-  });
 
   testUiWidgets(
     'all-notes list pages beyond the first fifty without dropping records',

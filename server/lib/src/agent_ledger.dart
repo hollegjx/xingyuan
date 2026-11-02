@@ -95,7 +95,10 @@ class AgentLedger {
             deviceHash,
             requestHash,
             elapsed,
-            agentDigest(request.now.toJson()),
+            agentDigest({
+              'clock': request.now.toJson(),
+              'protocol': request.toJson()['protocol'],
+            }),
           )
         : _runs[request.runId];
     if (run == null || run.device != deviceHash || run.request != requestHash) {
@@ -114,7 +117,11 @@ class AgentLedger {
       _stop(run);
       throw const AgentFailure(429, 'run_call_limit');
     }
-    if (agentDigest(request.now.toJson()) != run.clock) {
+    if (agentDigest({
+          'clock': request.now.toJson(),
+          'protocol': request.toJson()['protocol'],
+        }) !=
+        run.clock) {
       throw const AgentFailure(400, 'history_mismatch');
     }
     if (!newRun) _history(run, request);
@@ -211,7 +218,8 @@ class AgentLedger {
     final effective = result['status'] == 'duplicate'
         ? result['original_status']
         : result['status'];
-    if (call.name == 'submit_plan_draft' && effective != 'invalid') {
+    if ((call.name == 'submit_plan_draft' && effective != 'invalid') ||
+        (call.name == 'create_diary_draft' && effective == 'ok')) {
       _stop(run);
       throw const AgentFailure(409, 'draft_validation_terminal');
     }

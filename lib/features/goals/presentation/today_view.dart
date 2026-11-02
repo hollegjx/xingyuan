@@ -1,5 +1,4 @@
-import 'dart:async';
-
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,9 +7,7 @@ import '../../../app/providers.dart';
 import '../../../app/theme.dart';
 import '../../../shared/app_clock.dart';
 import '../../../shared/presentation.dart';
-import '../../../shared/ui/sky.dart';
-import '../../../shared/ui/sparkle.dart';
-import '../../../shared/ui/entry_bubbles.dart';
+import '../../../shared/ui/today_sky.dart';
 import '../../journal/domain/journal_entry.dart';
 import '../../journal/presentation/journal_day_sections.dart';
 import '../../journal/presentation/journal_editor_page.dart';
@@ -40,40 +37,9 @@ class TodayView extends ConsumerStatefulWidget {
 }
 
 class _TodayViewState extends ConsumerState<TodayView> {
-  final _goalsAnchor = GlobalKey();
-  Timer? _highlightTimer;
-  bool _highlight = false;
-
-  @override
-  void dispose() {
-    _highlightTimer?.cancel();
-    super.dispose();
-  }
-
   void _newGoal() =>
       Navigator.of(context)
           .push(MaterialPageRoute<int>(builder: (_) => const GoalFormPage()));
-
-  Future<void> _checkIn(List<Goal> goals) async {
-    if (goals.isEmpty) {
-      _newGoal();
-      return;
-    }
-    final target = _goalsAnchor.currentContext;
-    if (target == null) return;
-    await Scrollable.ensureVisible(
-      target,
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 250),
-    );
-    if (!mounted) return;
-    setState(() => _highlight = true);
-    _highlightTimer?.cancel();
-    _highlightTimer = Timer(const Duration(milliseconds: 900), () {
-      if (mounted) setState(() => _highlight = false);
-    });
-  }
 
   void _open(BuildContext context, Widget page) =>
       Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
@@ -110,69 +76,72 @@ class _TodayViewState extends ConsumerState<TodayView> {
               children: [
                 TabHeader(
                   eyebrow:
-                      '${day.month}月${day.day}日 ${weekdayLabels[day.weekday - 1]}',
+                      '${day.month}月${day.day}日 · ${weekdayLabels[day.weekday - 1]}',
                   title: greetingFor(reading.localTime.hour),
+                  subtitle: '今天也慢慢来。',
+                  padding: const EdgeInsets.fromLTRB(24, 0, 8, 6),
+                  trailing: [
+                    IconButton(
+                      key: const ValueKey('entry-new-goal'),
+                      tooltip: '新目标',
+                      onPressed: _newGoal,
+                      icon: const Icon(CupertinoIcons.plus, size: 22),
+                    ),
+                  ],
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 48),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _TodaySummary(reading: reading, overview: overview),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: XyEntryBubbles(
-                          entries: todayEntries(
+                      RiseIn(
+                        child: _TodaySummary(
+                          reading: reading,
+                          overview: overview,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      RiseIn(
+                        order: 1,
+                        child: _WriteCard(
+                          onQuickNote: () => openJournalEditor(
                             context,
-                            onCheckIn: goals.asData == null
-                                ? null
-                                : () => _checkIn(goals.requireValue),
-                            onQuickNote: () => openJournalEditor(
-                              context,
-                              kind: JournalKind.quickNote,
-                              day: day,
-                            ),
-                            onDiary: () => openJournalEditor(
-                              context,
-                              kind: JournalKind.diary,
-                              day: day,
-                            ),
-                            onNewGoal: _newGoal,
+                            kind: JournalKind.quickNote,
+                            day: day,
+                          ),
+                          onDiary: () => openJournalEditor(
+                            context,
+                            kind: JournalKind.diary,
+                            day: day,
                           ),
                         ),
                       ),
-                      // 「打卡」 scrolls here and the section glows briefly.
-                      AnimatedContainer(
-                        key: _goalsAnchor,
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : const Duration(milliseconds: 320),
-                        curve: Curves.easeOut,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(18),
-                          color: Theme.of(context).colorScheme.primary
-                              .withValues(alpha: _highlight ? .09 : 0),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const SectionLabel('今天的目标'),
-                            // Sections grow and shrink smoothly as stars are
-                            // lit.
-                            AnimatedSize(
-                              alignment: Alignment.topCenter,
-                              duration: MediaQuery.disableAnimationsOf(context)
-                                  ? Duration.zero
-                                  : const Duration(milliseconds: 260),
-                              curve: Curves.easeOutCubic,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: body,
-                              ),
-                            ),
-                          ],
-                        ),
+                      SectionLabel(
+                        '今天的目标',
+                        count: overview == null
+                            ? null
+                            : overview.pending.length +
+                                  overview.completed.length,
                       ),
+                      // Sections grow and shrink smoothly as stars are lit.
+                      // Reduced motion lays the list out directly: an
+                      // AnimatedSize with a zero duration still resizes
+                      // during layout.
+                      if (MediaQuery.disableAnimationsOf(context))
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: body,
+                        )
+                      else
+                        AnimatedSize(
+                          alignment: Alignment.topCenter,
+                          duration: const Duration(milliseconds: 260),
+                          curve: Curves.easeOutCubic,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: body,
+                          ),
+                        ),
                       if (goals.asData != null) JournalDaySections(day: day),
                     ],
                   ),
@@ -190,8 +159,9 @@ class _TodayViewState extends ConsumerState<TodayView> {
     List<Goal> goals,
     TodayOverview overview,
   ) {
-    Widget group(List<GoalDay> views) => XyGroup(
-      margin: EdgeInsets.zero,
+    Widget group(String header, List<GoalDay> views) => XyGroup(
+      header: '$header · ${views.length}',
+      margin: const EdgeInsets.only(top: 8),
       dividerIndent: 60,
       children: [
         for (final view in views)
@@ -203,7 +173,6 @@ class _TodayViewState extends ConsumerState<TodayView> {
       ],
     );
     return [
-      const SizedBox(height: 12),
       const ReminderOverview(compact: true),
       if (goals.isEmpty)
         const StatusPanel(message: '还没有目标')
@@ -212,19 +181,14 @@ class _TodayViewState extends ConsumerState<TodayView> {
           message: overview.completed.isEmpty ? '今天没有待办' : '今天的计划已完成',
           lit: overview.completed.isNotEmpty,
         ),
-      if (overview.pending.isNotEmpty) ...[
-        SectionLabel('等待点亮', count: overview.pending.length),
-        group(overview.pending),
-      ],
-      if (overview.completed.isNotEmpty) ...[
-        SectionLabel('已点亮', count: overview.completed.length),
-        group(overview.completed),
-      ],
+      if (overview.pending.isNotEmpty) group('等待点亮', overview.pending),
+      if (overview.completed.isNotEmpty) group('已点亮', overview.completed),
     ];
   }
 }
 
-/// Today's progress as a small night-sky card, with the 今日星语 entry.
+/// Today's progress as 今天的星座: the sky follows the hour, every goal is a
+/// star and lit ones join into the day's constellation. 今日星语 sits below.
 class _TodaySummary extends StatelessWidget {
   const _TodaySummary({required this.reading, required this.overview});
 
@@ -238,134 +202,204 @@ class _TodaySummary extends StatelessWidget {
     final overview = this.overview;
     final done = overview?.completed.length ?? 0;
     final waiting = overview?.pending.length ?? 0;
-    return SkyPanel(
-      seed: reading.day.day,
-      radius: BorderRadius.circular(20),
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Semantics(
-                      liveRegion: true,
+    return DecoratedBox(
+      key: const ValueKey('today-summary'),
+      decoration: BoxDecoration(
+        color: xy.card,
+        borderRadius: BorderRadius.circular(xyCardRadius),
+        border: Border.all(color: xy.line),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(xyCardRadius - 1),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TodaySky(
+              done: done,
+              total: done + waiting,
+              hour: reading.localTime.hour,
+              seed:
+                  reading.day.year * 400 +
+                  reading.day.month * 31 +
+                  reading.day.day,
+              height: 176,
+              builder: (context, sky) => Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Semantics(
+                    liveRegion: true,
+                    child: AnimatedSwitcher(
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 360),
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: Tween(
+                            begin: const Offset(0, 0.35),
+                            end: Offset.zero,
+                          ).animate(animation),
+                          child: child,
+                        ),
+                      ),
                       child: Text(
-                        '今日已完成 $done 项',
+                        '已点亮 $done 颗星',
                         key: const ValueKey('today-count'),
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          color: xy.onSky,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          color: sky.text,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      overview == null
-                          ? '正在读取今天的安排'
-                          : waiting > 0
-                          ? '还有 $waiting 项等待点亮'
-                          : done > 0
-                          ? '今天的星星都点亮了'
-                          : '今天没有安排',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: xy.onSkyMuted,
-                      ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    overview == null
+                        ? '正在读取今天的安排'
+                        : waiting > 0
+                        ? '还有 $waiting 项，不急。'
+                        : done > 0
+                        ? '今天的星座连好了。'
+                        : '今天还没有安排。',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: sky.textMuted,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              _Ring(done: done, total: done + waiting),
-            ],
-          ),
-          if (done + waiting > 0) ...[
-            const SizedBox(height: 14),
-            StarProgress(
-              lit: done,
-              total: done + waiting,
-              size: 16,
-              outline: xy.onSkyMuted,
+            ),
+            const DayAnalysisButton(
+              spacing: EdgeInsets.fromLTRB(12, 12, 12, 12),
             ),
           ],
-          const DayAnalysisButton(spacing: EdgeInsets.only(top: 16)),
-        ],
-      ),
-    );
-  }
-}
-
-/// An activity-style ring with today's completion share.
-class _Ring extends StatelessWidget {
-  const _Ring({required this.done, required this.total});
-
-  final int done;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    final xy = context.xy;
-    final value = total == 0 ? 0.0 : done / total;
-    return ExcludeSemantics(
-      child: SizedBox.square(
-        dimension: 52,
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(end: value),
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 600),
-          curve: Curves.easeOutCubic,
-          builder: (context, value, _) => CustomPaint(
-            painter: _RingPainter(
-              value: value,
-              track: xy.onSky.withValues(alpha: 0.14),
-              color: xy.star,
-            ),
-            child: Center(
-              child: StarMark(lit: done > 0, size: 20, outline: xy.onSkyMuted),
-            ),
-          ),
         ),
       ),
     );
   }
 }
 
-class _RingPainter extends CustomPainter {
-  const _RingPainter({
-    required this.value,
-    required this.track,
-    required this.color,
+/// The first thing to do on a quiet day: write. The prompt opens a 随手记;
+/// the pills beneath open either kind.
+class _WriteCard extends StatelessWidget {
+  const _WriteCard({required this.onQuickNote, required this.onDiary});
+
+  final VoidCallback onQuickNote;
+  final VoidCallback onDiary;
+
+  @override
+  Widget build(BuildContext context) {
+    final xy = context.xy;
+    final theme = Theme.of(context);
+    return Material(
+      color: xy.card,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(xyCardRadius),
+        side: BorderSide(color: xy.line),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Semantics(
+              button: true,
+              label: '写一条随手记',
+              excludeSemantics: true,
+              child: InkWell(
+                key: const ValueKey('entry-quick-note'),
+                borderRadius: BorderRadius.circular(14),
+                onTap: onQuickNote,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: 52,
+                    minWidth: double.infinity,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                    child: Text(
+                      '此刻在想什么……',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w400,
+                        color: xy.faint,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 8,
+                children: [
+                  _SoftPill(
+                    icon: CupertinoIcons.pencil,
+                    label: '随手记',
+                    onTap: onQuickNote,
+                  ),
+                  _SoftPill(
+                    key: const ValueKey('entry-diary'),
+                    icon: CupertinoIcons.book,
+                    label: '写日记',
+                    onTap: onDiary,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SoftPill extends StatelessWidget {
+  const _SoftPill({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    super.key,
   });
 
-  final double value;
-  final Color track;
-  final Color color;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    const stroke = 6.0;
-    final rect = (Offset.zero & size).deflate(stroke / 2);
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(rect, 0, 6.2832, false, paint..color = track);
-    if (value > 0) {
-      canvas.drawArc(
-        rect,
-        -1.5708,
-        6.2832 * value,
-        false,
-        paint..color = color,
-      );
-    }
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.primaryContainer,
+      shape: const StadiumBorder(),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: scheme.primary),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: scheme.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
-
-  @override
-  bool shouldRepaint(_RingPainter old) =>
-      old.value != value || old.track != track || old.color != color;
 }

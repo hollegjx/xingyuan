@@ -108,7 +108,7 @@ void main() {
       await sendText(tester, 'TEST request', waiting: true);
       try {
         expect(service.agentRequests, hasLength(2));
-        expect(find.text('发现冲突，正在调整'), findsOneWidget);
+        expect(find.text('有冲突，正在调整'), findsOneWidget);
         await tapVisible(tester, key('assistant-cancel'), settle: false);
       } finally {
         if (!repair.isCompleted) repair.complete();
@@ -173,6 +173,7 @@ void main() {
               title: 'TEST private existing',
               kind: GoalKind.single,
               plannedDay: app.clock.day,
+              startMinute: 600, // C36 partial requires a timed overlap.
             ),
           );
           service.script.add(
@@ -242,7 +243,7 @@ void main() {
             'agent-${brightness.name}-${scale}x-confirm',
             size,
             text: confirm,
-            expectedText: '确认创建',
+            expectedText: '确认添加',
           );
           await tapVisible(tester, confirm);
           expect(await app.repository.loadGoals(), hasLength(3));
@@ -280,6 +281,7 @@ void main() {
               title: 'TEST secret',
               kind: GoalKind.single,
               plannedDay: app.clock.day,
+              startMinute: 600,
             ),
           );
         } else if (status == 'truncated') {
@@ -299,8 +301,20 @@ void main() {
           service.script.add(
             (r) async => agentResponse(
               r,
-              tool: 'query_schedule',
-              arguments: {'from': app.clock.day.key, 'to': app.clock.day.key},
+              // C39: query partial is not a conflict warning; actual overlaps are.
+              tool: status == 'partial' ? 'validate_plan' : 'query_schedule',
+              arguments: status == 'partial'
+                  ? {
+                      'items': [
+                        {
+                          'title': 'TEST new',
+                          'date': app.clock.day.key,
+                          'start_minute': 615,
+                          'minutes': 30,
+                        },
+                      ],
+                    }
+                  : {'from': app.clock.day.key, 'to': app.clock.day.key},
             ),
           );
         }
@@ -330,13 +344,19 @@ void main() {
           await controller.refresh();
           await tester.pumpAndSettle();
         }
-        expect(find.text(agentDataMessages[status]!), findsOneWidget);
+        final expectedBanner = status == 'not_authorized'
+            ? '本轮未获「发送已有安排」授权，相关内容未纳入规划。'
+            : agentDataMessages[status]!;
+        expect(find.text(expectedBanner), findsOneWidget);
         final message = controller.messages.last;
         await tapVisible(tester, key('agent-trace-${message.id}'));
-        expect(find.text('查询安排'), findsOneWidget);
+        expect(
+          find.text(status == 'partial' ? '检查候选计划' : '查询安排'),
+          findsOneWidget,
+        );
         expect(key('agent-trace-${message.id}-0'), findsOneWidget);
         expect(find.textContaining('TEST secret'), findsNothing);
-        final banner = find.text(agentDataMessages[status]!);
+        final banner = find.text(expectedBanner);
         await Scrollable.ensureVisible(tester.element(banner), alignment: 0.1);
         await tester.pumpAndSettle();
         await capture(
@@ -345,7 +365,7 @@ void main() {
           'agent-banner-$status',
           size,
           text: banner,
-          expectedText: agentDataMessages[status]!,
+          expectedText: expectedBanner,
         );
       },
     );

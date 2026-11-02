@@ -10806,6 +10806,1204 @@ class Shape48 extends i0.VersionedTable {
       columnsByName['undo_result_json']! as i1.GeneratedColumn<String>;
 }
 
+final class Schema14 extends i0.VersionedSchema {
+  Schema14({required super.database}) : super(version: 14);
+  @override
+  late final List<i1.DatabaseSchemaEntity> entities = [
+    goals,
+    goalTitles,
+    goalSchedules,
+    checkIns,
+    goalReminders,
+    reminderOccurrences,
+    syncStates,
+    syncOutbox,
+    syncConflicts,
+    identityStates,
+    guestTransfers,
+    planningProfiles,
+    planningDrafts,
+    assistantSettings,
+    assistantSessions,
+    assistantMessages,
+    assistantMemories,
+    memoryEvents,
+    planProposals,
+    reminderCancellations,
+    dayRecords,
+    recordPhotos,
+    dayAnalysisSettings,
+    dayAnalyses,
+    pairingStates,
+    pairingCommands,
+    sharingStates,
+    sharingGrantsCache,
+    sharedRecordsCache,
+    sharedRepliesCache,
+    sharingDrafts,
+    sharingCommands,
+    recordSharingConsents,
+    sharingPublicationSources,
+    sharingPublications,
+    sharingPublicationPhotos,
+    chatStates,
+    chatMessagesCache,
+    chatPhotos,
+    chatCommands,
+    quickNotes,
+    diaryEntries,
+    quickNotePhotos,
+    diaryPhotos,
+    assistantDiaryProposals,
+    quickNotesByDay,
+  ];
+  late final Shape6 goals = Shape6(
+    source: i0.VersionedTable(
+      entityName: 'goals',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['UNIQUE(id, kind)', 'UNIQUE(id, owner)'],
+      columns: [
+        _column_0,
+        _column_28,
+        _column_1,
+        _column_2,
+        _column_3,
+        _column_4,
+        _column_5,
+        _column_6,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape1 goalTitles = Shape1(
+    source: i0.VersionedTable(
+      entityName: 'goal_titles',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(goal_id, effective_day)'],
+      columns: [_column_7, _column_8, _column_9],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape15 goalSchedules = Shape15(
+    source: i0.VersionedTable(
+      entityName: 'goal_schedules',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(goal_id, effective_day)'],
+      columns: [
+        _column_7,
+        _column_8,
+        _column_10,
+        _column_11,
+        _column_63,
+        _column_64,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape3 checkIns = Shape3(
+    source: i0.VersionedTable(
+      entityName: 'check_ins',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(goal_id, occurrence_key)',
+        'FOREIGN KEY(goal_id, goal_kind)REFERENCES goals(id, kind)',
+        'CHECK((goal_kind = 1 AND occurrence_key = \'once\')OR(goal_kind = 0 AND occurrence_key = completed_day))',
+      ],
+      columns: [
+        _column_7,
+        _column_12,
+        _column_13,
+        _column_14,
+        _column_15,
+        _column_16,
+        _column_17,
+        _column_18,
+        _column_11,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape4 goalReminders = Shape4(
+    source: i0.VersionedTable(
+      entityName: 'goal_reminders',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(goal_id)'],
+      columns: [
+        _column_7,
+        _column_19,
+        _column_20,
+        _column_21,
+        _column_22,
+        _column_23,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape7 reminderOccurrences = Shape7(
+    source: i0.VersionedTable(
+      entityName: 'reminder_occurrences',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['UNIQUE(goal_id, day)'],
+      columns: [
+        _column_0,
+        _column_7,
+        _column_1,
+        _column_24,
+        _column_25,
+        _column_17,
+        _column_26,
+        _column_27,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape8 syncStates = Shape8(
+    source: i0.VersionedTable(
+      entityName: 'sync_states',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(goal_id)',
+        'CHECK(server_revision >= 0 AND local_revision >= 0)',
+      ],
+      columns: [_column_7, _column_29, _column_30, _column_31, _column_32],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape9 syncOutbox = Shape9(
+    source: i0.VersionedTable(
+      entityName: 'sync_outbox',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'UNIQUE(operation_id)',
+        'UNIQUE(operation_id, goal_id, owner)',
+        'FOREIGN KEY(goal_id, owner)REFERENCES goals(id, owner)DEFERRABLE INITIALLY DEFERRED',
+        'CHECK(local_revision > 0 AND attempts >= 0)',
+        'CHECK(base_revision IS NULL OR base_revision >= 0)',
+        'CHECK(state IN (\'pending\', \'in_flight\', \'conflict\', \'superseded\'))',
+        'CHECK(state != \'in_flight\' OR base_revision IS NOT NULL)',
+        'CHECK(kind IN (\'create\', \'edit\', \'set_completed\', \'set_uncompleted\', \'archive\', \'import_guest\', \'resolve_conflict\'))',
+      ],
+      columns: [
+        _column_33,
+        _column_34,
+        _column_35,
+        _column_7,
+        _column_36,
+        _column_37,
+        _column_38,
+        _column_39,
+        _column_40,
+        _column_41,
+        _column_4,
+        _column_42,
+        _column_43,
+        _column_44,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape10 syncConflicts = Shape10(
+    source: i0.VersionedTable(
+      entityName: 'sync_conflicts',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(id)',
+        'UNIQUE(operation_id)',
+        'FOREIGN KEY(goal_id, owner)REFERENCES goals(id, owner)DEFERRABLE INITIALLY DEFERRED',
+        'CHECK(base_revision >= 0 AND remote_revision >= 0)',
+        'FOREIGN KEY(operation_id, goal_id, owner)REFERENCES sync_outbox(operation_id, goal_id, owner)',
+        'CHECK(resolution IS NULL OR resolution IN (\'local\', \'remote\'))',
+        'CHECK((resolved_at IS NULL)=(resolution IS NULL))',
+      ],
+      columns: [
+        _column_45,
+        _column_35,
+        _column_7,
+        _column_46,
+        _column_47,
+        _column_48,
+        _column_49,
+        _column_50,
+        _column_4,
+        _column_51,
+        _column_52,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape11 identityStates = Shape11(
+    source: i0.VersionedTable(
+      entityName: 'identity_states',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(singleton)',
+        'CHECK(singleton = 1 AND generation >= 0)',
+      ],
+      columns: [_column_53, _column_1, _column_54, _column_55],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape12 guestTransfers = Shape12(
+    source: i0.VersionedTable(
+      entityName: 'guest_transfers',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [_column_45, _column_56, _column_57, _column_4],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape13 planningProfiles = Shape13(
+    source: i0.VersionedTable(
+      entityName: 'planning_profiles',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(owner)'],
+      columns: [_column_35, _column_58, _column_59],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape14 planningDrafts = Shape14(
+    source: i0.VersionedTable(
+      entityName: 'planning_drafts',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)'],
+      columns: [
+        _column_45,
+        _column_35,
+        _column_24,
+        _column_60,
+        _column_61,
+        _column_62,
+        _column_4,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape49 assistantSettings = Shape49(
+    source: i0.VersionedTable(
+      entityName: 'assistant_settings',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(owner)',
+        'CHECK((consent_version = 0 AND consented_at IS NULL)OR(consent_version > 0 AND consented_at IS NOT NULL))',
+      ],
+      columns: [
+        _column_35,
+        _column_65,
+        _column_66,
+        _column_67,
+        _column_68,
+        _column_69,
+        _column_70,
+        _column_184,
+        _column_185,
+        _column_182,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape17 assistantSessions = Shape17(
+    source: i0.VersionedTable(
+      entityName: 'assistant_sessions',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(id)', 'UNIQUE(id, owner)'],
+      columns: [
+        _column_45,
+        _column_35,
+        _column_71,
+        _column_72,
+        _column_73,
+        _column_4,
+        _column_59,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape47 assistantMessages = Shape47(
+    source: i0.VersionedTable(
+      entityName: 'assistant_messages',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(id)',
+        'UNIQUE(id, owner)',
+        'UNIQUE(id, session_id, owner)',
+        'FOREIGN KEY(session_id, owner)REFERENCES assistant_sessions(id, owner)ON DELETE CASCADE',
+        'CHECK(role IN (\'user\', \'assistant\'))',
+        'CHECK(status IN (\'pending\', \'sent\', \'failed\', \'discarded\'))',
+      ],
+      columns: [
+        _column_45,
+        _column_74,
+        _column_35,
+        _column_75,
+        _column_76,
+        _column_77,
+        _column_78,
+        _column_79,
+        _column_183,
+        _column_4,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape19 assistantMemories = Shape19(
+    source: i0.VersionedTable(
+      entityName: 'assistant_memories',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(id)',
+        'CHECK(category IN (\'作息\', \'偏好\', \'目标与背景\', \'近期约束\', \'其他\'))',
+        'CHECK(length(content) > 0)',
+      ],
+      columns: [
+        _column_45,
+        _column_35,
+        _column_80,
+        _column_76,
+        _column_81,
+        _column_82,
+        _column_83,
+        _column_84,
+        _column_85,
+        _column_4,
+        _column_59,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape20 memoryEvents = Shape20(
+    source: i0.VersionedTable(
+      entityName: 'memory_events',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(id)',
+        'FOREIGN KEY(message_id, owner)REFERENCES assistant_messages(id, owner)ON DELETE CASCADE',
+        'CHECK(op IN (\'add\', \'update\', \'delete\'))',
+      ],
+      columns: [
+        _column_45,
+        _column_35,
+        _column_86,
+        _column_87,
+        _column_88,
+        _column_89,
+        _column_90,
+        _column_91,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape48 planProposals = Shape48(
+    source: i0.VersionedTable(
+      entityName: 'plan_proposals',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(id)',
+        'FOREIGN KEY(session_id, owner)REFERENCES assistant_sessions(id, owner)',
+        'FOREIGN KEY(message_id, session_id, owner)REFERENCES assistant_messages(id, session_id, owner)',
+        'CHECK(status IN (\'draft\', \'applied\', \'undone\'))',
+        'CHECK(status != \'draft\' OR(session_id IS NOT NULL AND message_id IS NOT NULL))',
+        'CHECK(status = \'draft\' OR(applied_items_json IS NOT NULL AND applied_goal_ids_json IS NOT NULL AND applied_at IS NOT NULL))',
+        'CHECK(status != \'undone\' OR(undone_at IS NOT NULL AND undo_result_json IS NOT NULL))',
+      ],
+      columns: [
+        _column_45,
+        _column_35,
+        _column_92,
+        _column_93,
+        _column_94,
+        _column_183,
+        _column_95,
+        _column_96,
+        _column_62,
+        _column_97,
+        _column_98,
+        _column_99,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape22 reminderCancellations = Shape22(
+    source: i0.VersionedTable(
+      entityName: 'reminder_cancellations',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(notification_id)'],
+      columns: [_column_100, _column_35, _column_101],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape23 dayRecords = Shape23(
+    source: i0.VersionedTable(
+      entityName: 'day_records',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(id)',
+        'UNIQUE(goal_id, owner, day)',
+        'UNIQUE(id, owner)',
+        'FOREIGN KEY(goal_id, owner)REFERENCES goals(id, owner)',
+        'CHECK(revision >= 0 AND draft_revision >= 0)',
+        'CHECK(sync_state IN (\'local\', \'pending\', \'confirmed\', \'failed\'))',
+        'CHECK(last_operation_id IS NULL OR length(last_operation_id) = 36)',
+      ],
+      columns: [
+        _column_45,
+        _column_102,
+        _column_35,
+        _column_24,
+        _column_103,
+        _column_104,
+        _column_105,
+        _column_106,
+        _column_21,
+        _column_107,
+        _column_108,
+        _column_109,
+        _column_110,
+        _column_111,
+        _column_112,
+        _column_4,
+        _column_59,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape24 recordPhotos = Shape24(
+    source: i0.VersionedTable(
+      entityName: 'record_photos',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(id)',
+        'UNIQUE(owner, filename)',
+        'UNIQUE(record_id, saved_position)',
+        'UNIQUE(record_id, draft_position)',
+        'FOREIGN KEY(record_id, owner)REFERENCES day_records(id, owner)',
+        'CHECK(width BETWEEN 1 AND 1600 AND height BETWEEN 1 AND 1600)',
+        'CHECK(byte_count BETWEEN 1 AND 2097152)',
+        'CHECK(filename = id || \'.jpg\' AND id NOT GLOB \'*[^a-f0-9-]*\')',
+        'CHECK(sha256 NOT GLOB \'*[^a-f0-9]*\')',
+        'CHECK(saved_position IS NULL OR saved_position BETWEEN 0 AND 2)',
+        'CHECK(draft_position IS NULL OR draft_position BETWEEN 0 AND 2)',
+        'CHECK(upload_state IN (\'local\', \'pending\', \'uploaded\', \'failed\'))',
+      ],
+      columns: [
+        _column_45,
+        _column_113,
+        _column_35,
+        _column_114,
+        _column_115,
+        _column_116,
+        _column_117,
+        _column_118,
+        _column_119,
+        _column_120,
+        _column_121,
+        _column_4,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape25 dayAnalysisSettings = Shape25(
+    source: i0.VersionedTable(
+      entityName: 'day_analysis_settings',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(owner)',
+        'CHECK(consent_version >= 0)',
+        'CHECK((consent_version = 0)=(consented_at IS NULL))',
+      ],
+      columns: [_column_35, _column_122, _column_65, _column_66],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape26 dayAnalyses = Shape26(
+    source: i0.VersionedTable(
+      entityName: 'day_analyses',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(id)',
+        'CHECK(status IN (\'pending\', \'succeeded\', \'failed\', \'cancelled\'))',
+        'CHECK((status = \'succeeded\')=(response_json IS NOT NULL))',
+        'CHECK((status IN (\'failed\', \'cancelled\'))=(failure_code IS NOT NULL))',
+      ],
+      columns: [
+        _column_45,
+        _column_35,
+        _column_24,
+        _column_17,
+        _column_123,
+        _column_124,
+        _column_125,
+        _column_126,
+        _column_4,
+        _column_59,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape27 pairingStates = Shape27(
+    source: i0.VersionedTable(
+      entityName: 'pairing_states',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(owner)',
+        'CHECK(generation >= 0 AND state_revision >= 0 AND draft_revision >= 0)',
+        'CHECK((state_json IS NULL)=(refreshed_at IS NULL))',
+      ],
+      columns: [
+        _column_35,
+        _column_127,
+        _column_54,
+        _column_128,
+        _column_129,
+        _column_130,
+        _column_131,
+        _column_112,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape28 pairingCommands = Shape28(
+    source: i0.VersionedTable(
+      entityName: 'pairing_commands',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(owner)',
+        'CHECK(kind IN (\'createInvite\', \'cancelInvite\', \'join\', \'leave\'))',
+        'CHECK(status IN (\'sending\', \'uncertain\', \'failed\'))',
+        'CHECK((status = \'sending\')=(error_code IS NULL))',
+        'CHECK(generation >= 0 AND attempts > 0 AND base_state_revision >= 0 AND base_draft_revision >= 0)',
+        'CHECK(retry_after IS NULL OR retry_after >= 0)',
+      ],
+      columns: [
+        _column_132,
+        _column_133,
+        _column_134,
+        _column_36,
+        _column_123,
+        _column_77,
+        _column_135,
+        _column_42,
+        _column_136,
+        _column_137,
+        _column_138,
+        _column_139,
+        _column_59,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape29 sharingStates = Shape29(
+    source: i0.VersionedTable(
+      entityName: 'sharing_states',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(owner)',
+        'CHECK(generation >= 0 AND cache_revision >= 0)',
+        'CHECK(server_revision IS NULL OR server_revision >= 0)',
+        'CHECK((server_revision IS NULL)=(refreshed_at IS NULL))',
+        'CHECK(member_id <> partner_id)',
+      ],
+      columns: [
+        _column_132,
+        _column_134,
+        _column_74,
+        _column_140,
+        _column_141,
+        _column_142,
+        _column_143,
+        _column_144,
+        _column_130,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape30 sharingGrantsCache = Shape30(
+    source: i0.VersionedTable(
+      entityName: 'sharing_grants_cache',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: ['PRIMARY KEY(owner, id)', 'UNIQUE(owner, goal_id)'],
+      columns: [_column_145, _column_45, _column_146, _column_37],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape31 sharedRecordsCache = Shape31(
+    source: i0.VersionedTable(
+      entityName: 'shared_records_cache',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(owner, id)',
+        'UNIQUE(owner, sequence)',
+        'CHECK(sequence > 0)',
+      ],
+      columns: [
+        _column_145,
+        _column_45,
+        _column_147,
+        _column_148,
+        _column_149,
+        _column_37,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape32 sharedRepliesCache = Shape32(
+    source: i0.VersionedTable(
+      entityName: 'shared_replies_cache',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(owner, id)',
+        'UNIQUE(owner, sequence)',
+        'FOREIGN KEY(owner, record_id)REFERENCES shared_records_cache(owner, id)ON DELETE CASCADE',
+        'CHECK(sequence > 0)',
+      ],
+      columns: [
+        _column_35,
+        _column_45,
+        _column_113,
+        _column_148,
+        _column_149,
+        _column_37,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape33 sharingDrafts = Shape33(
+    source: i0.VersionedTable(
+      entityName: 'sharing_drafts',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(owner, record_id)',
+        'FOREIGN KEY(owner, record_id)REFERENCES shared_records_cache(owner, id)ON DELETE CASCADE',
+        'CHECK(revision >= 0)',
+      ],
+      columns: [_column_35, _column_113, _column_104, _column_21, _column_59],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape34 sharingCommands = Shape34(
+    source: i0.VersionedTable(
+      entityName: 'sharing_commands',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'CHECK(kind IN (\'enable\', \'stop\', \'publish\', \'remove\', \'reply\', \'deleteReply\'))',
+        'CHECK(status IN (\'pending\', \'sending\', \'uncertain\', \'failed\', \'succeeded\'))',
+        'CHECK((status IN (\'failed\', \'uncertain\'))=(error_code IS NOT NULL))',
+        'CHECK((status = \'succeeded\')=(receipt_json IS NOT NULL))',
+        'CHECK(attempts >= 0 AND(draft_revision IS NULL OR draft_revision >= 0))',
+      ],
+      columns: [
+        _column_33,
+        _column_145,
+        _column_133,
+        _column_36,
+        _column_150,
+        _column_151,
+        _column_123,
+        _column_125,
+        _column_41,
+        _column_152,
+        _column_135,
+        _column_153,
+        _column_4,
+        _column_59,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape35 recordSharingConsents = Shape35(
+    source: i0.VersionedTable(
+      entityName: 'record_sharing_consents',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(owner, record_id, stage)',
+        'FOREIGN KEY(record_id, owner)REFERENCES day_records(id, owner)',
+        'FOREIGN KEY(owner, grant_id)REFERENCES sharing_grants_cache(owner, id)ON DELETE CASCADE',
+        'CHECK(stage IN (\'created\', \'draft\', \'saved\'))',
+      ],
+      columns: [_column_35, _column_113, _column_154, _column_74, _column_147],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape36 sharingPublicationSources = Shape36(
+    source: i0.VersionedTable(
+      entityName: 'sharing_publication_sources',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(owner, id)',
+        'UNIQUE(owner, grant_id, goal_id, day)',
+        'FOREIGN KEY(goal_id, owner)REFERENCES goals(id, owner)',
+        'FOREIGN KEY(owner, grant_id)REFERENCES sharing_grants_cache(owner, id)ON DELETE CASCADE',
+        'CHECK(remote_revision >= 0)',
+        'CHECK((remote_id IS NULL)=(remote_revision = 0))',
+        'CHECK(remote_id IS NULL OR length(remote_id) = 36)',
+      ],
+      columns: [
+        _column_45,
+        _column_35,
+        _column_102,
+        _column_24,
+        _column_74,
+        _column_147,
+        _column_155,
+        _column_156,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape37 sharingPublications = Shape37(
+    source: i0.VersionedTable(
+      entityName: 'sharing_publications',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'UNIQUE(owner, operation_id)',
+        'FOREIGN KEY(owner, source_id)REFERENCES sharing_publication_sources(owner, id)ON DELETE CASCADE',
+        'FOREIGN KEY(record_id, owner)REFERENCES day_records(id, owner)',
+        'CHECK(kind IN (\'publish\', \'remove\'))',
+        'CHECK(status IN (\'pending\', \'sending\', \'uncertain\', \'failed\', \'succeeded\'))',
+        'CHECK((status IN (\'failed\', \'uncertain\'))=(error_code IS NOT NULL))',
+        'CHECK((status = \'succeeded\')=(receipt_json IS NOT NULL))',
+        'CHECK(share_details OR content = \'\')',
+        'CHECK(attempts >= 0 AND(record_revision IS NULL OR record_revision >= 0))',
+        'CHECK((record_id IS NULL)=(record_revision IS NULL))',
+      ],
+      columns: [
+        _column_33,
+        _column_35,
+        _column_133,
+        _column_157,
+        _column_151,
+        _column_158,
+        _column_36,
+        _column_71,
+        _column_159,
+        _column_160,
+        _column_161,
+        _column_76,
+        _column_125,
+        _column_41,
+        _column_162,
+        _column_153,
+        _column_135,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape38 sharingPublicationPhotos = Shape38(
+    source: i0.VersionedTable(
+      entityName: 'sharing_publication_photos',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(owner, operation_id, photo_id)',
+        'UNIQUE(owner, operation_id, position)',
+        'FOREIGN KEY(owner, operation_id)REFERENCES sharing_publications(owner, operation_id)ON DELETE CASCADE',
+        'CHECK(position BETWEEN 0 AND 2)',
+      ],
+      columns: [
+        _column_35,
+        _column_34,
+        _column_163,
+        _column_164,
+        _column_165,
+        _column_153,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape39 chatStates = Shape39(
+    source: i0.VersionedTable(
+      entityName: 'chat_states',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(owner)',
+        'CHECK(cache_revision >= 0 AND read_sequence >= 0 AND draft_revision >= 0)',
+        'CHECK(server_revision IS NULL OR server_revision >= 0)',
+        'CHECK(snapshot_revision IS NULL OR(snapshot_revision >= 0 AND snapshot_revision <= server_revision))',
+        'CHECK(refreshed_at IS NULL OR server_revision IS NOT NULL)',
+      ],
+      columns: [
+        _column_145,
+        _column_74,
+        _column_143,
+        _column_144,
+        _column_166,
+        _column_130,
+        _column_167,
+        _column_168,
+        _column_169,
+        _column_112,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape40 chatMessagesCache = Shape40(
+    source: i0.VersionedTable(
+      entityName: 'chat_messages_cache',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(owner, id)',
+        'UNIQUE(owner, sequence)',
+        'CHECK(sequence > 0)',
+      ],
+      columns: [_column_170, _column_45, _column_148, _column_149, _column_37],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape41 chatPhotos = Shape41(
+    source: i0.VersionedTable(
+      entityName: 'chat_photos',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(id)',
+        'CHECK(width BETWEEN 1 AND 1600 AND height BETWEEN 1 AND 1600)',
+        'CHECK(byte_count BETWEEN 1 AND 2097152)',
+      ],
+      columns: [
+        _column_45,
+        _column_35,
+        _column_74,
+        _column_115,
+        _column_116,
+        _column_117,
+        _column_118,
+        _column_171,
+        _column_4,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape42 chatCommands = Shape42(
+    source: i0.VersionedTable(
+      entityName: 'chat_commands',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'CHECK(kind IN (\'send\', \'remove\'))',
+        'CHECK(status IN (\'pending\', \'sending\', \'uncertain\', \'failed\', \'succeeded\'))',
+        'CHECK((status IN (\'failed\', \'uncertain\'))=(error_code IS NOT NULL))',
+        'CHECK((status = \'succeeded\')=(receipt_json IS NOT NULL))',
+        'CHECK(kind <> \'remove\' OR(message_id IS NOT NULL AND local_photo_id IS NULL))',
+        'CHECK(attempts >= 0)',
+        'CHECK(local_photo_id IS NULL OR upload_operation_id IS NOT NULL)',
+      ],
+      columns: [
+        _column_33,
+        _column_170,
+        _column_133,
+        _column_36,
+        _column_104,
+        _column_172,
+        _column_173,
+        _column_174,
+        _column_93,
+        _column_162,
+        _column_125,
+        _column_41,
+        _column_152,
+        _column_135,
+        _column_153,
+        _column_4,
+        _column_59,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape43 quickNotes = Shape43(
+    source: i0.VersionedTable(
+      entityName: 'quick_notes',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(id)',
+        'UNIQUE(id, owner)',
+        'CHECK(revision >= 0 AND draft_revision >= 0)',
+        'CHECK(last_operation_id IS NULL OR length(last_operation_id) = 36)',
+        'CHECK((last_operation_id IS NULL)=(last_operation_draft_revision IS NULL))',
+        'CHECK(last_operation_draft_revision IS NULL OR last_operation_draft_revision >= 0)',
+        'CHECK(deleted_at IS NULL OR saved_at IS NULL)',
+      ],
+      columns: [
+        _column_45,
+        _column_35,
+        _column_24,
+        _column_17,
+        _column_104,
+        _column_21,
+        _column_107,
+        _column_108,
+        _column_109,
+        _column_175,
+        _column_110,
+        _column_112,
+        _column_4,
+        _column_59,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape43 diaryEntries = Shape43(
+    source: i0.VersionedTable(
+      entityName: 'diary_entries',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(id)',
+        'UNIQUE(id, owner)',
+        'UNIQUE(owner, day)',
+        'CHECK(revision >= 0 AND draft_revision >= 0)',
+        'CHECK(last_operation_id IS NULL OR length(last_operation_id) = 36)',
+        'CHECK((last_operation_id IS NULL)=(last_operation_draft_revision IS NULL))',
+        'CHECK(last_operation_draft_revision IS NULL OR last_operation_draft_revision >= 0)',
+        'CHECK(deleted_at IS NULL OR saved_at IS NULL)',
+      ],
+      columns: [
+        _column_45,
+        _column_35,
+        _column_24,
+        _column_17,
+        _column_104,
+        _column_21,
+        _column_107,
+        _column_108,
+        _column_109,
+        _column_175,
+        _column_110,
+        _column_112,
+        _column_4,
+        _column_59,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape44 quickNotePhotos = Shape44(
+    source: i0.VersionedTable(
+      entityName: 'quick_note_photos',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(id)',
+        'UNIQUE(owner, filename)',
+        'UNIQUE(entry_id, saved_position)',
+        'UNIQUE(entry_id, draft_position)',
+        'FOREIGN KEY(entry_id, owner)REFERENCES quick_notes(id, owner)',
+        'CHECK(width BETWEEN 1 AND 1600 AND height BETWEEN 1 AND 1600)',
+        'CHECK(byte_count BETWEEN 1 AND 2097152)',
+        'CHECK(filename = id || \'.jpg\' AND id NOT GLOB \'*[^a-f0-9-]*\')',
+        'CHECK(sha256 NOT GLOB \'*[^a-f0-9]*\')',
+        'CHECK(saved_position IS NULL OR saved_position BETWEEN 0 AND 2)',
+        'CHECK(draft_position IS NULL OR draft_position BETWEEN 0 AND 2)',
+      ],
+      columns: [
+        _column_45,
+        _column_176,
+        _column_35,
+        _column_114,
+        _column_115,
+        _column_116,
+        _column_117,
+        _column_118,
+        _column_120,
+        _column_121,
+        _column_4,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape44 diaryPhotos = Shape44(
+    source: i0.VersionedTable(
+      entityName: 'diary_photos',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(id)',
+        'UNIQUE(owner, filename)',
+        'UNIQUE(entry_id, saved_position)',
+        'UNIQUE(entry_id, draft_position)',
+        'FOREIGN KEY(entry_id, owner)REFERENCES diary_entries(id, owner)',
+        'CHECK(width BETWEEN 1 AND 1600 AND height BETWEEN 1 AND 1600)',
+        'CHECK(byte_count BETWEEN 1 AND 2097152)',
+        'CHECK(filename = id || \'.jpg\' AND id NOT GLOB \'*[^a-f0-9-]*\')',
+        'CHECK(sha256 NOT GLOB \'*[^a-f0-9]*\')',
+        'CHECK(saved_position IS NULL OR saved_position BETWEEN 0 AND 2)',
+        'CHECK(draft_position IS NULL OR draft_position BETWEEN 0 AND 2)',
+      ],
+      columns: [
+        _column_45,
+        _column_176,
+        _column_35,
+        _column_114,
+        _column_115,
+        _column_116,
+        _column_117,
+        _column_118,
+        _column_120,
+        _column_121,
+        _column_4,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  late final Shape45 assistantDiaryProposals = Shape45(
+    source: i0.VersionedTable(
+      entityName: 'assistant_diary_proposals',
+      withoutRowId: false,
+      isStrict: false,
+      tableConstraints: [
+        'PRIMARY KEY(id)',
+        'UNIQUE(message_id, owner)',
+        'FOREIGN KEY(message_id, session_id, owner)REFERENCES assistant_messages(id, session_id, owner)ON DELETE CASCADE',
+        'CHECK(status IN (\'pending\', \'cancelled\', \'applied\', \'undone\'))',
+        'CHECK((status IN (\'applied\', \'undone\'))=(entry_id IS NOT NULL AND target_day IS NOT NULL AND applied_revision IS NOT NULL AND applied_draft_revision IS NOT NULL AND applied_at IS NOT NULL))',
+      ],
+      columns: [
+        _column_45,
+        _column_35,
+        _column_74,
+        _column_86,
+        _column_177,
+        _column_76,
+        _column_125,
+        _column_178,
+        _column_179,
+        _column_89,
+        _column_180,
+        _column_181,
+        _column_97,
+      ],
+      attachedDatabase: database,
+    ),
+    alias: null,
+  );
+  final i1.Index quickNotesByDay = i1.Index(
+    'quick_notes_by_day',
+    'CREATE INDEX quick_notes_by_day ON quick_notes (owner, day, created_at, id)',
+  );
+}
+
+class Shape49 extends i0.VersionedTable {
+  Shape49({required super.source, required super.alias}) : super.aliased();
+  i1.GeneratedColumn<String> get owner =>
+      columnsByName['owner']! as i1.GeneratedColumn<String>;
+  i1.GeneratedColumn<int> get consentVersion =>
+      columnsByName['consent_version']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get consentedAt =>
+      columnsByName['consented_at']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get sendMemories =>
+      columnsByName['send_memories']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get sendSchedule =>
+      columnsByName['send_schedule']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get sendStats =>
+      columnsByName['send_stats']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get autoMemory =>
+      columnsByName['auto_memory']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get readJournalOnRequest =>
+      columnsByName['read_journal_on_request']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get settingsRevision =>
+      columnsByName['settings_revision']! as i1.GeneratedColumn<int>;
+  i1.GeneratedColumn<int> get agentEnabled =>
+      columnsByName['agent_enabled']! as i1.GeneratedColumn<int>;
+}
+
+i1.GeneratedColumn<int> _column_184(String aliasedName) =>
+    i1.GeneratedColumn<int>(
+      'read_journal_on_request',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.int,
+      $customConstraints:
+          'NOT NULL DEFAULT 1 CHECK (read_journal_on_request IN (0, 1))',
+      defaultValue: const i1.CustomExpression('1'),
+    );
+i1.GeneratedColumn<int> _column_185(String aliasedName) =>
+    i1.GeneratedColumn<int>(
+      'settings_revision',
+      aliasedName,
+      false,
+      type: i1.DriftSqlType.int,
+      $customConstraints: 'NOT NULL DEFAULT 0',
+      defaultValue: const i1.CustomExpression('0'),
+    );
 i0.MigrationStepWithVersion migrationSteps({
   required Future<void> Function(i1.Migrator m, Schema2 schema) from1To2,
   required Future<void> Function(i1.Migrator m, Schema3 schema) from2To3,
@@ -10819,6 +12017,7 @@ i0.MigrationStepWithVersion migrationSteps({
   required Future<void> Function(i1.Migrator m, Schema11 schema) from10To11,
   required Future<void> Function(i1.Migrator m, Schema12 schema) from11To12,
   required Future<void> Function(i1.Migrator m, Schema13 schema) from12To13,
+  required Future<void> Function(i1.Migrator m, Schema14 schema) from13To14,
 }) {
   return (currentVersion, database) async {
     switch (currentVersion) {
@@ -10882,6 +12081,11 @@ i0.MigrationStepWithVersion migrationSteps({
         final migrator = i1.Migrator(database, schema);
         await from12To13(migrator, schema);
         return 13;
+      case 13:
+        final schema = Schema14(database: database);
+        final migrator = i1.Migrator(database, schema);
+        await from13To14(migrator, schema);
+        return 14;
       default:
         throw ArgumentError.value('Unknown migration from $currentVersion');
     }
@@ -10901,6 +12105,7 @@ i1.OnUpgrade stepByStep({
   required Future<void> Function(i1.Migrator m, Schema11 schema) from10To11,
   required Future<void> Function(i1.Migrator m, Schema12 schema) from11To12,
   required Future<void> Function(i1.Migrator m, Schema13 schema) from12To13,
+  required Future<void> Function(i1.Migrator m, Schema14 schema) from13To14,
 }) => i0.VersionedSchema.stepByStepHelper(
   step: migrationSteps(
     from1To2: from1To2,
@@ -10915,5 +12120,6 @@ i1.OnUpgrade stepByStep({
     from10To11: from10To11,
     from11To12: from11To12,
     from12To13: from12To13,
+    from13To14: from13To14,
   ),
 );

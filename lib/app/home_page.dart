@@ -40,11 +40,9 @@ class _HomePageState extends ConsumerState<HomePage> {
         index: _tab,
         children: [
           TodayView(onOpenCompanion: () => _select(3)),
+          // The planning view paints its own sheet behind the status bar.
           _planningOpened
-              ? const SafeArea(
-                  bottom: false,
-                  child: AssistantConversationView(),
-                )
+              ? const AssistantConversationView()
               : const SizedBox.shrink(),
           const SafeArea(bottom: false, child: ReviewView()),
           // Built only while visible, so it refreshes each time it is opened.
@@ -83,8 +81,8 @@ class _HomePageState extends ConsumerState<HomePage> {
             const NavigationDestination(
               icon: Icon(CupertinoIcons.sparkles),
               selectedIcon: Icon(CupertinoIcons.sparkles),
-              label: '规划',
-              tooltip: '规划',
+              label: '助手',
+              tooltip: '助手',
             ),
             const NavigationDestination(
               icon: Icon(CupertinoIcons.calendar),

@@ -53,7 +53,7 @@ const _originalTemplate = '''
     }
 }
 
-assistant.example.invalid {
+assistant.example.com {
     @photoUpload path /v1/companion/photos/upload
     @ordinary not path /v1/companion/photos/upload
     request_body @photoUpload {

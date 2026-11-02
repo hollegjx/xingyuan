@@ -63,6 +63,110 @@ void main() {
         onStage: stages?.add,
       );
 
+  // C37 keeps the a88a53e wire contract while C36 enriches local issues.
+  for (final timing in ['untimed', 'unknown-duration', 'complete']) {
+    test('C37 $timing all tools retain the deployed result format', () async {
+      await goals.create(
+        GoalDraft(
+          title: 'TEST existing',
+          kind: GoalKind.single,
+          plannedDay: clock.day,
+          startMinute: timing == 'untimed' ? null : 420,
+          durationMinutes: timing == 'unknown-duration' ? null : 30,
+        ),
+      );
+      final candidate = item(start: 450);
+      tool('get_planning_preferences', {});
+      tool('query_schedule', range());
+      tool('find_free_slots', {
+        ...range(),
+        'minutes': 30,
+        'window': {'start_minute': 360, 'end_minute': 600},
+        'daily_cap': null,
+      });
+      tool('validate_plan', {
+        'items': [candidate],
+      });
+      tool('submit_plan_draft', {
+        'items': [
+          candidate,
+          {...item(start: 900, day: -1), 'title': 'TEST past'},
+        ],
+        'note': 'TEST invalid draft',
+      });
+      tool('submit_plan_draft', {
+        'items': [candidate],
+        'note': 'TEST final draft',
+      });
+      final local = <Map<String, dynamic>>[];
+      final turn = await runner.run(
+        await store.begin(session, 'TEST planning'),
+        onToolResult: (_, result) => local.add(result),
+      );
+      expect(turn.proposalId, isNotNull);
+      expect(service.agentRequests, hasLength(6));
+      expect(local, hasLength(6));
+      final outgoing = service.agentRequests.last.results;
+      expect(outgoing[1]['status'], timing == 'complete' ? 'ok' : 'partial');
+      expect(outgoing[2]['status'], 'ok');
+      expect(outgoing[2]['data']['unknown_dates'], isEmpty);
+      expect(outgoing[4]['status'], 'invalid');
+      for (final request in service.agentRequests) {
+        AgentRequest.fromJson(request.toJson());
+        for (var i = 0; i < request.results.length; i++) {
+          final result = request.results[i];
+          final name = request.calls[i].name;
+          validateAgentResult(result, name, CalendarDate.parse(clock.day.key));
+          if (name == 'validate_plan' || name == 'submit_plan_draft') {
+            for (final issue in result['data']['issues'] as List) {
+              expect((issue as Map).keys, unorderedEquals(['index', 'code']));
+            }
+            expect(agentCanonical(result), isNot(contains('TEST existing')));
+          }
+        }
+      }
+      if (timing == 'unknown-duration') {
+        for (final index in [3, 4, 5]) {
+          expect(local[index]['data']['issues'][0]['with'], {
+            'title': 'TEST existing',
+            'start_minute': 420,
+          });
+        }
+      }
+      expect(await goals.loadGoals(), hasLength(1));
+      expect(service.requests, isEmpty);
+    });
+  }
+
+  test(
+    'C37 cached partial result strips local references from nested history',
+    () async {
+      await goals.create(
+        GoalDraft(
+          title: 'TEST local reference',
+          kind: GoalKind.single,
+          plannedDay: clock.day,
+          startMinute: 420,
+        ),
+      );
+      final args = {
+        'items': [item(start: 450)],
+      };
+      tool('validate_plan', args);
+      tool('validate_plan', args);
+      text();
+      await run();
+      final results = service.agentRequests.last.results;
+      expect(results[1]['status'], 'duplicate');
+      expect(results[1]['original_status'], 'partial');
+      expect(results[1]['result'], results[0]);
+      expect(results[0]['data']['issues'], [
+        {'index': 0, 'code': 'unknown_schedule'},
+      ]);
+      expect(agentCanonical(results), isNot(contains('TEST local reference')));
+    },
+  );
+
   test('default Agent general question is one call, no private fields or local writes', () async {
     text();
     final result = await run();
@@ -269,6 +373,8 @@ void main() {
         title: 'TEST unknown',
         kind: GoalKind.single,
         plannedDay: clock.day,
+        startMinute:
+            600, // C36: only an overlapping unknown duration is partial.
       ),
     );
     tool('submit_plan_draft', {
@@ -282,6 +388,45 @@ void main() {
     expect(metadata.banners, [agentDataMessages['partial']]);
     expect(await goals.loadGoals(), hasLength(1));
   });
+
+  test(
+    'C36 exhausted invalid draft names the earliest partial overlap',
+    () async {
+      await goals.create(
+        GoalDraft(
+          title: 'TEST run',
+          kind: GoalKind.single,
+          plannedDay: clock.day,
+          startMinute: 420,
+        ),
+      );
+      await goals.create(
+        GoalDraft(
+          title: 'TEST occupied',
+          kind: GoalKind.single,
+          plannedDay: clock.day,
+          startMinute: 900,
+          durationMinutes: 30,
+        ),
+      );
+      for (var round = 0; round < 6; round++) {
+        tool('submit_plan_draft', {
+          'items': [
+            item(start: 450),
+            {...item(start: 900), 'title': 'TEST other'},
+          ],
+          'note': 'TEST distinct attempt $round',
+        });
+      }
+      final result = await run();
+      expect(result.proposalId, isNull);
+      expect(result.message.content, contains('可能和「TEST run」07:00 冲突'));
+      expect(service.agentRequests, hasLength(6));
+      expect(await goals.loadGoals(), hasLength(2));
+      final metadata = AgentRunMetadata.decode(result.message.agentMetadata!);
+      expect(metadata.encode(), isNot(contains('TEST run')));
+    },
+  );
 
   Future<(String, PlanPreview)> draft({int day = 0}) async {
     tool('submit_plan_draft', {
@@ -331,6 +476,7 @@ void main() {
         title: 'TEST unknown',
         kind: GoalKind.single,
         plannedDay: clock.day,
+        startMinute: 600,
       ),
     );
     await expectLater(
@@ -398,7 +544,12 @@ void main() {
 
   test('changed unknown schedule invalidates acknowledgement even with identical partial indexes', () async {
     Future<void> unknown(String title) => goals.create(
-      GoalDraft(title: title, kind: GoalKind.single, plannedDay: clock.day),
+      GoalDraft(
+        title: title,
+        kind: GoalKind.single,
+        plannedDay: clock.day,
+        startMinute: 600,
+      ),
     );
     await unknown('TEST original unknown');
     final (id, preview) = await draft();

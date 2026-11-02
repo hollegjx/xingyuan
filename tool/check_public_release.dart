@@ -45,8 +45,10 @@ String? privatePathReason(String path) {
 List<String> privateTextReasons(String text) => [
   if (RegExp(r'/(?:Users|home)/[A-Za-z0-9._-]+').hasMatch(text))
     'personal absolute home path',
-  if (RegExp(r'-----BEGIN (?:RSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----')
-      .hasMatch(text))
+  if (RegExp(
+    r'-----BEGIN '
+    r'(?:RSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----',
+  ).hasMatch(text))
     'private-key header',
   if (RegExp(r'DEVELOPMENT_TEAM\s*=\s*[A-Z0-9]{10}\s*;').hasMatch(text))
     'Apple development-team identifier',

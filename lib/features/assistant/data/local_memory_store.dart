@@ -42,6 +42,8 @@ class LocalMemoryStore {
           sendStats: true,
           autoMemory: true,
           agentEnabled: true,
+          readJournalOnRequest: true,
+          settingsRevision: 0,
         );
   });
 
@@ -53,6 +55,7 @@ class LocalMemoryStore {
         .insertOnConflictUpdate(
           current.copyWith(
             consentVersion: assistantConsentVersion,
+            settingsRevision: current.settingsRevision + 1,
             consentedAt: Value(_now),
           ),
         );
@@ -64,6 +67,7 @@ class LocalMemoryStore {
     bool? sendStats,
     bool? autoMemory,
     bool? agentEnabled,
+    bool? readJournalOnRequest,
   }) => db.transaction(() async {
     await goals.requireActiveIdentity();
     final current = await settings();
@@ -76,6 +80,8 @@ class LocalMemoryStore {
             sendStats: sendStats,
             autoMemory: autoMemory,
             agentEnabled: agentEnabled,
+            readJournalOnRequest: readJournalOnRequest,
+            settingsRevision: current.settingsRevision + 1,
           ),
         );
   });
@@ -106,11 +112,13 @@ class LocalMemoryStore {
 
   Future<List<AssistantMemory>?> forRequest() => db.transaction(() async {
     await goals.requireActiveIdentity();
-    if (!(await settings()).sendMemories) return null;
+    final config = await settings();
+    if (!config.sendMemories) return null;
     final today = goals.clock.read().day.key;
     return [
       for (final row in await list())
-        if (row.expiresOn == null || row.expiresOn!.compareTo(today) >= 0)
+        if ((config.readJournalOnRequest || row.sourceSessionId == null) &&
+            (row.expiresOn == null || row.expiresOn!.compareTo(today) >= 0))
           _wire(row),
     ];
   });

@@ -16,7 +16,7 @@ import 'support/sync_fixtures.dart';
 import 'support/ui_harness.dart';
 
 Future<void> openPlanning(WidgetTester tester, {bool consent = true}) async {
-  await tapVisible(tester, find.byTooltip('规划'));
+  await tapVisible(tester, find.byTooltip('助手'));
   if (consent &&
       find
           .byKey(const ValueKey('assistant-consent-confirm'))
@@ -367,7 +367,7 @@ void main() {
           'TEST 修改后阅读',
         );
         await goBack(tester);
-        expect(find.text('已创建 1 项 · 查看'), findsOneWidget);
+        expect(find.text('已添加 1 项'), findsOneWidget);
         final event = controller.events.values.expand((rows) => rows).single;
         await tapVisible(
           tester,
@@ -386,7 +386,11 @@ void main() {
         );
         expect(await app.repository.loadGoals(), isEmpty);
         await goBack(tester);
-        expect(find.text('已撤销 · 查看结果'), findsOneWidget);
+        expect(find.text('已撤销'), findsOneWidget);
+        expect(
+          find.byKey(ValueKey('open-proposal-${proposal.id}')),
+          findsOneWidget,
+        );
         expect(service.requests, hasLength(1));
         expect(tester.takeException(), isNull);
       },

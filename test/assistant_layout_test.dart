@@ -1,10 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:habit_checkin/app/providers.dart';
 import 'package:habit_checkin/features/assistant/assistant_providers.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 
+import 'journal_diary_capture_test.dart' as pixels;
 import 'support/layout_capture.dart';
 import 'support/test_assistant_service.dart';
 import 'support/ui_harness.dart';
@@ -14,6 +18,16 @@ void main() {
   setUpAll(() async {
     tzdata.initializeTimeZones();
     await capture.prepare();
+    await pixels.loadDiaryCaptureFont();
+    if (pixels.captureFont.isNotEmpty) {
+      final bytes = ByteData.sublistView(
+        await File(pixels.captureFont).readAsBytes(),
+      );
+      // Current Flutter's iOS aliases; test-process only, no theme override.
+      for (final family in ['CupertinoSystemText', 'CupertinoSystemDisplay']) {
+        await (FontLoader(family)..addFont(Future.value(bytes))).load();
+      }
+    }
   });
 
   for (final scale in [1.0, 2.0, 3.0]) {
@@ -73,7 +87,26 @@ void main() {
           await tester.pumpAndSettle();
         }
 
-        Future<void> shot(String name) => capture.shot(tester, scale, name);
+        final boundary = GlobalKey();
+        Future<void> shot(String name) async {
+          await capture.shot(tester, scale, name);
+          if (pixels.captureFont.isEmpty) return;
+          final text = switch (name) {
+            'editor-save-keyboard' => '完成',
+            'preview-confirm' => '确认添加',
+            'receipt' => '已添加 1 项',
+            _ => null,
+          };
+          if (text == null) return;
+          await pixels.capture(
+            tester,
+            boundary,
+            'c40-layout-$scale-$name',
+            const Size(320, 568),
+            text: find.text(text),
+            expectedText: text,
+          );
+        }
 
         final app = UiHarness()..clock.setDay(2026, 10, 20, hour: 21);
         final service = ConversationTestService()
@@ -83,9 +116,10 @@ void main() {
           tester,
           assistantService: service,
           assistantCredentials: ConversationTestCredentials(),
-          wrapApp: capture.wrap,
+          wrapApp: (child) =>
+              RepaintBoundary(key: boundary, child: capture.wrap(child)),
         );
-        await tap(find.byTooltip('规划'));
+        await tap(find.byTooltip('助手'));
         expect(service.requests, isEmpty);
         await shot('consent-top');
         final consent = find.byKey(const ValueKey('assistant-consent-confirm'));
@@ -157,11 +191,21 @@ void main() {
         await shot('editor-minutes-keyboard');
         final save = find.byKey(const ValueKey('assistant-save-plan-item'));
         await usable(save);
-        expect(
-          tester.getBottomRight(find.text('编辑条目')).dy,
-          lessThan(tester.getTopLeft(find.text('名称')).dy),
-        );
         await shot('editor-save-keyboard');
+        final fieldRect = tester.getRect(minutes);
+        final header = find
+            .ancestor(of: save, matching: find.byType(Row))
+            .first;
+        expect(
+          fieldRect.top,
+          greaterThanOrEqualTo(tester.getRect(header).bottom),
+        );
+        expect(
+          fieldRect.bottom,
+          lessThanOrEqualTo(568 - 200),
+          reason: 'field=$fieldRect; header=${tester.getRect(header)}',
+        );
+        expect(minutes.hitTestable(), findsOneWidget);
         await tap(save);
         await keyboard(false);
         final apply = find.byKey(const ValueKey('assistant-apply-plan'));
@@ -172,7 +216,7 @@ void main() {
         expect(goal.titleOn(app.clock.day), 'TEST 周三晚上的阅读与章节整理计划');
         expect(goal.scheduleOn(app.clock.day).timing.label, '19:30 · 45 分钟');
         expect(goal.reminder.enabled, isFalse);
-        await tester.ensureVisible(find.text('已创建 1 项'));
+        await tester.ensureVisible(find.text('已添加 1 项'));
         await tester.pumpAndSettle();
         await shot('receipt');
         await tap(find.byType(BackButton));

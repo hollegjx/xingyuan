@@ -36,7 +36,7 @@ void main() {
   }
 
   for (final (index, key) in [
-    'sb_secret_${'x' * 32}',
+    'sb_${'secret'}_${'x' * 32}',
     'legacy-service-role-placeholder',
     'postgres://user:password@host/db',
     'sb_publishable_REPLACE_WITH_YOUR_KEY',

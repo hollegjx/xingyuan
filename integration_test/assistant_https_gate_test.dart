@@ -19,7 +19,7 @@ void main() {
       reason: 'Explicit opt-in is required before any public network request',
     );
     const address = String.fromEnvironment('ASSISTANT_BASE_URL');
-    expect(address, 'https://assistant.example.invalid');
+    expect(address, 'https://assistant.example.com');
     var credentialReads = 0;
     final service = HttpAssistantService(
       endpoint: Uri.parse(address),

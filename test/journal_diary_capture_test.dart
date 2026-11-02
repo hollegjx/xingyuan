@@ -97,6 +97,11 @@ Future<void> loadDiaryCaptureFont() async {
     }.entries) {
       await (FontLoader(font.key)..addFont(rootBundle.load(font.value))).load();
     }
+    // The bundled serif (theme titles) is a real app font: load it as is.
+    await (FontLoader('XySerif')
+          ..addFont(rootBundle.load('assets/fonts/XySerif-400.ttf'))
+          ..addFont(rootBundle.load('assets/fonts/XySerif-600.ttf')))
+        .load();
     final bytes = ByteData.sublistView(await File(captureFont).readAsBytes());
     // Test-process aliases only; no font bundled or production theme change.
     for (final family in [

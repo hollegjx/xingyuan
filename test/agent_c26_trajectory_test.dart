@@ -43,8 +43,18 @@ void main() {
       () async {
         final trace = (await driver.run(scenario(id)))!;
         final result = score(id, trace);
-        expect(result['status'], 'pass');
-        expect((result['checks'] as Map)['data_banners'], 'pass');
+        final checks = result['checks'] as Map;
+        // C36 supersedes S06's frozen day-wide warning, not its banner checks.
+        expect(result['status'], id == 'S06' ? 'fail' : 'pass');
+        expect(
+          checks.entries.where((e) => e.value != 'pass').map((e) => e.key),
+          id == 'S06' ? ['unknown_schedule_not_ok'] : isEmpty,
+        );
+        if (id == 'S06') {
+          expect(checks['unknown_schedule_not_ok'], 'fail');
+          expect(result['validation'], 'ok');
+        }
+        expect(checks['data_banners'], 'pass');
         expect(trace.data['channels'], isNot(contains('presentation')));
         expect(
           trace.events.where((e) => e['kind'] == 'data_state'),
@@ -65,7 +75,15 @@ void main() {
             final state = events.singleWhere((e) => e['kind'] == 'data_state');
             state[mutation == 'text' ? 'messages' : 'statuses'] = ['wrong'];
           }
-          expect(score(id, AgentTrace.fromJson(data))['status'], isNot('pass'));
+          final mutated = score(id, AgentTrace.fromJson(data));
+          expect(
+            mutated['status'],
+            id == 'S08' && mutation == 'missing' ? 'incomplete' : 'fail',
+          );
+          expect(
+            (mutated['checks'] as Map)['data_banners'],
+            mutation == 'missing' ? 'not_observed' : 'fail',
+          );
         }
       },
     );

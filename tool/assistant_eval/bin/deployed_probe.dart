@@ -78,7 +78,7 @@ Future<void> main(List<String> args) async {
   }) async {
     final outgoing = await client.openUrl(
       get ? 'GET' : 'POST',
-      Uri.https('assistant.example.invalid', path),
+      Uri.https('assistant.example.com', path),
     );
     outgoing.followRedirects = false;
     outgoing.headers.contentType = ContentType.json;

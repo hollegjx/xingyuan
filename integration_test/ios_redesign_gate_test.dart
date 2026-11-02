@@ -114,7 +114,7 @@ void main() {
       expect(tester.getRect(input), pinned);
       await shot('chat-scrolled');
       await goBack(tester);
-      await tapVisible(tester, find.byTooltip('规划'));
+      await tapVisible(tester, find.byTooltip('助手'));
       await shot('planning');
       await tapVisible(tester, find.byTooltip('今天'));
       await tapVisible(tester, find.byKey(const ValueKey('entry-new-goal')));

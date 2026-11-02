@@ -201,8 +201,6 @@ class _CompanionFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final xy = context.xy;
-    final theme = Theme.of(context);
     // As a tab it carries its own large title; pushed as a page, the
     // navigation bar already says 陪伴.
     final inTab = ModalRoute.of(context)?.isFirst ?? true;
@@ -234,33 +232,10 @@ class _CompanionFrame extends StatelessWidget {
                       seed: 21,
                       radius: BorderRadius.circular(20),
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                      child: Row(
-                        children: [
-                          _TwinStars(paired: paired),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  title,
-                                  style: theme.textTheme.titleLarge?.copyWith(
-                                    color: xy.onSky,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  status,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: xy.onSkyMuted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                      child: _HeroContent(
+                        paired: paired,
+                        title: title,
+                        status: status,
                       ),
                     ),
                     ...children,
@@ -275,6 +250,61 @@ class _CompanionFrame extends StatelessWidget {
     return onRefresh == null
         ? list
         : RefreshIndicator.adaptive(onRefresh: onRefresh!, child: list);
+  }
+}
+
+/// C57: the sky card keeps its full status text at every size; at large
+/// text sizes the stars sit above the words instead of squeezing them.
+class _HeroContent extends StatelessWidget {
+  const _HeroContent({
+    required this.paired,
+    required this.title,
+    required this.status,
+  });
+
+  final bool paired;
+  final String title;
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final xy = context.xy;
+    final theme = Theme.of(context);
+    final words = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          key: const ValueKey('companion-hero-title'),
+          style: theme.textTheme.titleLarge?.copyWith(color: xy.onSky),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          status,
+          key: const ValueKey('companion-hero-status'),
+          style: theme.textTheme.bodyMedium?.copyWith(color: xy.onSkyMuted),
+        ),
+      ],
+    );
+    final stacked = MediaQuery.textScalerOf(context).scale(20) > 34;
+    if (stacked) {
+      return Column(
+        key: const ValueKey('companion-hero-stacked'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _TwinStars(paired: paired),
+          const SizedBox(height: 10),
+          words,
+        ],
+      );
+    }
+    return Row(
+      children: [
+        _TwinStars(paired: paired),
+        const SizedBox(width: 14),
+        Expanded(child: words),
+      ],
+    );
   }
 }
 
@@ -889,8 +919,9 @@ class ChatEntry extends ConsumerWidget {
     final controller = ref.watch(chatControllerProvider).asData?.value;
     Widget tile(int unread) => _ActionTile(
       key: const ValueKey('open-chat'),
-      icon: CupertinoIcons.chat_bubble_2_fill,
-      color: const Color(0xFF34C759),
+      icon: CupertinoIcons.chat_bubble_2,
+      // C57: one accent only; no green.
+      color: Theme.of(context).colorScheme.primary,
       title: unread == 0 ? '私聊' : '私聊 · $unread 条未读',
       subtitle: '只有你们两个人能看到',
       badge: unread,

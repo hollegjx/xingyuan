@@ -114,7 +114,7 @@ void main() {
       );
       await goBack(tester);
       await tapVisible(tester, find.byKey(ValueKey('complete-$id')));
-      expect(find.text('今日已完成 1 项'), findsOneWidget);
+      expect(find.text('已点亮 1 颗星'), findsOneWidget);
       final completion =
           (await app.repository.loadGoals()).single.singleCompletion!;
       expect(completion.day, app.clock.day);
@@ -144,7 +144,7 @@ void main() {
       await goBack(tester);
       await tapVisible(tester, find.byKey(ValueKey('undo-$id')));
       expect(find.text('已逾期，仍可完成'), findsOneWidget);
-      expect(find.text('今日已完成 0 项'), findsOneWidget);
+      expect(find.text('已点亮 0 颗星'), findsOneWidget);
 
       await tapVisible(tester, find.byKey(ValueKey('detail-$id')));
       await tapVisible(tester, find.byKey(const ValueKey('edit-goal')));
@@ -173,7 +173,7 @@ void main() {
       await tapVisible(tester, find.byKey(ValueKey('detail-$id')));
       await tapVisible(tester, find.byKey(const ValueKey('goal-history')));
       await selectHistoryDay(tester, '2026-10-07');
-      expect(find.text('计划 2026年10月7日'), findsOneWidget);
+      expect(find.text('单次'), findsOneWidget);
       expect(find.text('未记录'), findsOneWidget);
       final goal = (await app.repository.loadGoals()).single;
       expect(goal.singleCompletion, isNull);

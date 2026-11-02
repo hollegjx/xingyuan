@@ -380,34 +380,31 @@ void main() {
       expect(agentCanonical(result), isNot(contains('archived')));
     });
 
-    test(
-      'overdue single appears once today with unknown time; not15 repetitions',
-      () async {
-        clock.setDay(2026, 10, 27);
-        await goals.create(
-          GoalDraft(
-            title: 'TEST overdue',
-            kind: GoalKind.single,
-            plannedDay: clock.day,
-            startMinute: 600,
-            durationMinutes: 30,
-          ),
-        );
-        clock.setDay(2026, 10, 28);
-        final result = await (await local()).execute(
-          call('query_schedule', range(days: 14)),
-        );
-        expect(result['status'], 'partial');
-        expect((result['data'] as Map)['items'], [
-          {
-            'title': 'TEST overdue',
-            'date': today.key,
-            'start_minute': null,
-            'minutes': 30,
-          },
-        ]);
-      },
-    );
+    test('C37 overdue single remains a partial query once today, not15 repetitions', () async {
+      clock.setDay(2026, 10, 27);
+      await goals.create(
+        GoalDraft(
+          title: 'TEST overdue',
+          kind: GoalKind.single,
+          plannedDay: clock.day,
+          startMinute: 600,
+          durationMinutes: 30,
+        ),
+      );
+      clock.setDay(2026, 10, 28);
+      final result = await (await local()).execute(
+        call('query_schedule', range(days: 14)),
+      );
+      expect(result['status'], 'partial');
+      expect((result['data'] as Map)['items'], [
+        {
+          'title': 'TEST overdue',
+          'date': today.key,
+          'start_minute': null,
+          'minutes': 30,
+        },
+      ]);
+    });
 
     test('only current authorized memories, no goal read for general preference query', () async {
       await store.memories.add(

@@ -107,7 +107,7 @@ void main() {
         container = ProviderScope.containerOf(
           tester.element(find.byType(HabitCheckinApp)),
         );
-        await tap(find.byTooltip('规划'));
+        await tap(find.byTooltip('助手'));
         if (phase == 'write') {
           expect(service.requests, isEmpty);
           await tap(find.byKey(const ValueKey('assistant-consent-confirm')));
@@ -149,7 +149,7 @@ void main() {
             await tap(find.byType(BackButton));
           } else {
             expect(proposal.status, 'undone');
-            expect(find.text('已撤销 · 查看结果'), findsOneWidget);
+            expect(find.text('已撤销'), findsOneWidget);
             expect(find.textContaining('已撤销记忆操作'), findsOneWidget);
           }
           expect(await goals.loadGoals(), isEmpty);

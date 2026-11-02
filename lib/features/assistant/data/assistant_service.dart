@@ -6,7 +6,7 @@ import 'package:xingyuan_core/xingyuan_core.dart';
 
 import '../../../shared/service_endpoint.dart';
 
-const assistantConsentVersion = 2;
+const assistantConsentVersion = 4;
 // The deployed proxy's 64KB request limit is decimal, unlike the protocol limit.
 const diaryRequestBodyLimit = 64000;
 
@@ -104,6 +104,13 @@ abstract interface class AgentService {
   });
 }
 
+abstract interface class AssistantAgentCapability {
+  Future<bool> supportsAssistantTools({
+    required AssistantAccess access,
+    required AssistantCancellation cancellation,
+  });
+}
+
 class AgentServiceStopped implements Exception {
   const AgentServiceStopped(this.code);
   final String code;
@@ -130,7 +137,8 @@ class HttpAssistantService
         AssistantService,
         DayAnalysisService,
         JournalAiService,
-        AgentService {
+        AgentService,
+        AssistantAgentCapability {
   HttpAssistantService({
     required Uri? endpoint,
     required this.readCredential,
@@ -145,6 +153,42 @@ class HttpAssistantService
   bool get configured => endpoint != null;
 
   @override
+  Future<bool> supportsAssistantTools({
+    required AssistantAccess access,
+    required AssistantCancellation cancellation,
+  }) async {
+    // Probe every run: no capability or private-body cache can cross identities/endpoints.
+    try {
+      final value = agentObject(
+        await _send(
+          '/v2/agent/capabilities',
+          null,
+          access,
+          cancellation,
+          authenticateGet: true,
+          requestTimeout: timeout < const Duration(seconds: 3)
+              ? timeout
+              : const Duration(seconds: 3),
+        ),
+        {'protocol', 'tools'},
+      );
+      return value['protocol'] == assistantAgentProtocol &&
+          agentCanonical(value['tools']) == agentCanonical(assistantAgentTools);
+    } on AssistantFailure catch (error) {
+      if ([
+        AssistantFailureKind.cancelled,
+        AssistantFailureKind.discarded,
+        AssistantFailureKind.consent,
+      ].contains(error.kind)) {
+        rethrow;
+      }
+      return false;
+    } on FormatException {
+      return false;
+    }
+  }
+
+  @override
   Future<AgentTurnResponse> agentTurn(
     AgentRequest request, {
     required AssistantAccess access,
@@ -154,7 +198,7 @@ class HttpAssistantService
       throw const AssistantFailure(AssistantFailureKind.tooLarge);
     }
     final value = await _send(
-      '/v1/agent/turn',
+      request is AssistantAgentRequest ? '/v2/agent/turn' : '/v1/agent/turn',
       request.toJson(),
       access,
       cancellation,
@@ -162,7 +206,7 @@ class HttpAssistantService
       responseBodyLimit: agentBodyLimit - 1,
     );
     try {
-      return AgentTurnResponse.fromJson(value, request: request);
+      return parseAssistantAgentResponse(value, request: request);
     } on FormatException {
       throw const AssistantFailure(AssistantFailureKind.invalidResponse);
     }
@@ -282,6 +326,8 @@ class HttpAssistantService
     AssistantCancellation? cancellation, {
     int requestBodyLimit = assistantBodyLimit,
     int responseBodyLimit = assistantBodyLimit,
+    bool authenticateGet = false,
+    Duration? requestTimeout,
   }) async {
     HttpClient? client;
     var ended = false;
@@ -313,7 +359,7 @@ class HttpAssistantService
         throw const AssistantFailure(AssistantFailureKind.unconfigured);
       }
       final String? credential;
-      if (payload == null) {
+      if (payload == null && !authenticateGet) {
         credential = null;
       } else {
         try {
@@ -331,7 +377,8 @@ class HttpAssistantService
         throw const AssistantFailure(AssistantFailureKind.tooLarge);
       }
       await requireAccess();
-      final transport = HttpClient()..connectionTimeout = timeout;
+      final transport = HttpClient()
+        ..connectionTimeout = (requestTimeout ?? timeout);
       client = transport;
       final outgoing = await transport.openUrl(
         payload == null ? 'GET' : 'POST',
@@ -351,7 +398,8 @@ class HttpAssistantService
         outgoing.add(bytes);
       }
       final response = await outgoing.close();
-      if (response.statusCode != 200 && route == '/v1/agent/turn') {
+      if (response.statusCode != 200 &&
+          (route == '/v1/agent/turn' || route == '/v2/agent/turn')) {
         final received = <int>[];
         await for (final chunk in response) {
           if (received.length + chunk.length > responseBodyLimit) {
@@ -365,7 +413,10 @@ class HttpAssistantService
             decodeAssistantJson(utf8.decode(received)),
             {'protocol', 'kind', 'code'},
           );
-          if (value['protocol'] == agentProtocol &&
+          if (value['protocol'] ==
+                  (route == '/v2/agent/turn'
+                      ? assistantAgentProtocol
+                      : agentProtocol) &&
               value['kind'] == 'stopped' &&
               value['code'] is String &&
               RegExp(r'^[a-z_]{1,64}$').hasMatch(value['code'] as String)) {
@@ -404,7 +455,7 @@ class HttpAssistantService
           cancellation._cancelled.future.then<Object?>((_) {
             throw const AssistantFailure(AssistantFailureKind.cancelled);
           }),
-      ]).timeout(timeout);
+      ]).timeout(requestTimeout ?? timeout);
     } on AssistantFailure {
       rethrow;
     } on AgentServiceStopped {

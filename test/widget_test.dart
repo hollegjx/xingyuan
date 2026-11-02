@@ -18,7 +18,7 @@ void main() {
       final app = UiHarness();
       await app.mount(tester);
       expect(find.text('还没有目标'), findsOneWidget);
-      expect(find.text('今日已完成 0 项'), findsOneWidget);
+      expect(find.text('已点亮 0 颗星'), findsOneWidget);
       expect(await app.repository.loadGoals(), isEmpty);
       expect(app.permissions.requests, 0);
       expect(app.permissions.reads, 1);
@@ -46,12 +46,12 @@ void main() {
     await tester.tap(complete);
     await tester.tap(complete);
     await tester.pumpAndSettle();
-    expect(find.text('今日已完成 1 项'), findsOneWidget);
+    expect(find.text('已点亮 1 颗星'), findsOneWidget);
     expect((await app.repository.loadGoals()).single.completions, hasLength(1));
     await tapVisible(tester, find.byKey(ValueKey('undo-$id')));
-    expect(find.text('今日已完成 0 项'), findsOneWidget);
+    expect(find.text('已点亮 0 颗星'), findsOneWidget);
     await tapVisible(tester, complete);
-    expect(find.text('今日已完成 1 项'), findsOneWidget);
+    expect(find.text('已点亮 1 颗星'), findsOneWidget);
     expect(app.permissions.requests, 0);
   });
 
@@ -211,7 +211,7 @@ void main() {
     await tapVisible(tester, find.byKey(ValueKey('complete-$id')));
     expect(find.text('日期已经变化，请刷新今天后重试'), findsOneWidget);
     expect((await app.repository.loadGoals()).single.completions, isEmpty);
-    expect(find.text('10月10日 周六'), findsOneWidget);
+    expect(find.text('10月10日 · 周六'), findsOneWidget);
     await tapVisible(tester, find.byKey(ValueKey('complete-$id')));
     expect(
       (await app.repository.loadGoals()).single.completionOn(app.clock.day),
@@ -266,7 +266,7 @@ void main() {
       expect(find.text('已归档，只读'), findsOneWidget);
       await goBack(tester);
       await tester.pumpAndSettle();
-      expect(find.text('今日已完成 1 项'), findsOneWidget);
+      expect(find.text('已点亮 1 颗星'), findsOneWidget);
       expect(find.byKey(ValueKey('undo-$id')), findsNothing);
       await openMenu(tester, '目标管理');
       expect(find.text('未来整理资料'), findsOneWidget);
@@ -322,11 +322,11 @@ void main() {
     );
     await app.repository.setCompleted(id, true, expectedDay: app.clock.day);
     await app.mount(tester);
-    expect(find.text('今日已完成 1 项'), findsOneWidget);
+    expect(find.text('已点亮 1 颗星'), findsOneWidget);
     app.clock.setDay(2026, 10, 10, hour: 0);
     await tester.pump(const Duration(minutes: 1, milliseconds: 30));
     await tester.pumpAndSettle();
-    expect(find.text('今日已完成 0 项'), findsOneWidget);
+    expect(find.text('已点亮 0 颗星'), findsOneWidget);
     expect(find.byKey(ValueKey('complete-$id')), findsOneWidget);
     app.clock.setDay(2026, 10, 11);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
@@ -336,7 +336,7 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
-    expect(find.text('10月11日 周日'), findsOneWidget);
+    expect(find.text('10月11日 · 周日'), findsOneWidget);
     expect((await app.repository.loadGoals()).single.completions, hasLength(1));
   });
 
@@ -379,9 +379,9 @@ void main() {
           await app.mount(tester);
           expect(tester.takeException(), isNull);
           await tapVisible(tester, find.byKey(ValueKey('complete-$id')));
-          expect(find.text('今日已完成 1 项'), findsOneWidget);
+          expect(find.text('已点亮 1 颗星'), findsOneWidget);
           await tapVisible(tester, find.byKey(ValueKey('undo-$id')));
-          expect(find.text('今日已完成 0 项'), findsOneWidget);
+          expect(find.text('已点亮 0 颗星'), findsOneWidget);
           await tapVisible(tester, find.byKey(ValueKey('detail-$id')));
           await tapVisible(tester, find.byKey(const ValueKey('edit-goal')));
           await tester.enterText(find.byKey(titleKey), '小屏幕长名称与中文输入 📖');

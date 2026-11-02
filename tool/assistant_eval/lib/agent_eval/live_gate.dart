@@ -5,7 +5,7 @@ import 'package:xingyuan_server/model_access.dart';
 
 import 'fixtures.dart';
 
-const agentRelay = 'https://model.example.invalid/v1/chat/completions';
+const agentRelay = 'https://model-relay.example.com/v1/chat/completions';
 
 /// A local interlock, not a substitute for the owner's direct authorization.
 class LivePermit {

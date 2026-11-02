@@ -285,7 +285,7 @@ void main() {
       assistantService: service,
       assistantCredentials: ConversationTestCredentials(),
     );
-    await tapVisible(tester, find.byTooltip('规划'));
+    await tapVisible(tester, find.byTooltip('助手'));
     expect(find.text('AI 数据授权'), findsOneWidget);
     await switchAway(tester, app);
     await switchBack(tester, app);

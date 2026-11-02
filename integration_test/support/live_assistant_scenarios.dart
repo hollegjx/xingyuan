@@ -197,7 +197,7 @@ class LiveAssistantScenarios {
       lessThanOrEqualTo(tiles.last.view.schedule.startMinute!),
     );
     expect(find.text('LIVE 编辑阅读'), findsOneWidget);
-    await tap(find.byTooltip('规划'));
+    await tap(find.byTooltip('助手'));
     record('C01');
 
     await start('C02');
@@ -264,7 +264,7 @@ class LiveAssistantScenarios {
     );
     await tap(find.byTooltip('今天'));
     await tap(find.byKey(ValueKey('complete-${today.id}')));
-    await tap(find.byTooltip('规划'));
+    await tap(find.byTooltip('助手'));
     await tap(find.byKey(ValueKey('undo-proposal-${week.id}')));
     expect(find.textContaining('保留，已有打卡记录'), findsWidgets);
     await tap(find.byKey(const ValueKey('assistant-undo-confirm')));
@@ -472,7 +472,7 @@ class LiveAssistantScenarios {
           .status,
       GoalDayStatus.completed,
     );
-    await tap(find.byTooltip('规划'));
+    await tap(find.byTooltip('助手'));
     interruptTurn(false);
     await send('', retryId: failed.id);
     expect(turns.last.requestId, isNot(failed.requestId));

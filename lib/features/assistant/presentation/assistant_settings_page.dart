@@ -103,6 +103,7 @@ class _AssistantSettingsPageState extends ConsumerState<AssistantSettingsPage> {
     bool? stats,
     bool? automatic,
     bool? agent,
+    bool? journal,
   }) => _operate(() async {
     final store = await _store;
     await store.memories.updateSettings(
@@ -111,6 +112,7 @@ class _AssistantSettingsPageState extends ConsumerState<AssistantSettingsPage> {
       sendStats: stats,
       autoMemory: automatic,
       agentEnabled: agent,
+      readJournalOnRequest: journal,
     );
     ref.invalidate(assistantSettingsProvider);
   });
@@ -122,7 +124,7 @@ class _AssistantSettingsPageState extends ConsumerState<AssistantSettingsPage> {
     return AssistantIdentityBoundary(
       store: _store,
       child: Scaffold(
-        appBar: pageAppBar(context, 'AI'),
+        appBar: pageAppBar(context, 'AI 设置'),
         body: SafeArea(
           child: settings.when(
             loading: () => const PageScroll(
@@ -138,9 +140,125 @@ class _AssistantSettingsPageState extends ConsumerState<AssistantSettingsPage> {
             ),
             data: (value) => PageScroll(
               children: [
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  NoticeBanner(tone: NoticeTone.error, message: _error!),
+                ],
+                XyGroup(
+                  header: '发送范围',
+                  margin: const EdgeInsets.only(top: 12),
+                  footer:
+                      '关掉「发送已有安排」，规划就看不到你的日程，也没法找空档；'
+                      '关掉「发送记忆」，规划不会参考你的偏好。',
+                  children: [
+                    SwitchListTile.adaptive(
+                      key: const ValueKey('assistant-enabled'),
+                      title: const Text('规划与日记 AI'),
+                      value:
+                          value.consentVersion == assistantConsentVersion &&
+                          value.consentedAt != null,
+                      onChanged: _busy
+                          ? null
+                          : (enabled) async {
+                              if (enabled) {
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        const AssistantConsentPage(),
+                                  ),
+                                );
+                              } else {
+                                await _operate(() async {
+                                  await (await _store).memories.revokeConsent();
+                                  ref.invalidate(assistantSettingsProvider);
+                                });
+                              }
+                            },
+                    ),
+                    XyValueRow(
+                      label: Text(
+                        value.consentVersion == assistantConsentVersion
+                            ? '已确认当前版本的数据授权'
+                            : '尚未确认，不会发送请求',
+                      ),
+                      value: TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const AssistantConsentPage(),
+                                ),
+                              ),
+                        child: const Text('查看授权'),
+                      ),
+                    ),
+                    SwitchListTile.adaptive(
+                      key: const ValueKey('assistant-read-journal-on-request'),
+                      title: const Text('按请求读取随手记和日记'),
+                      subtitle: const Text('你让助手写日记或回顾时，读取你点名那天的文字。照片从不发送。'),
+                      value: value.readJournalOnRequest,
+                      onChanged: _busy
+                          ? null
+                          : (next) => _update(journal: next),
+                    ),
+                    SwitchListTile.adaptive(
+                      title: const Text('发送记忆'),
+                      value: value.sendMemories,
+                      onChanged: _busy
+                          ? null
+                          : (next) => _update(memories: next),
+                    ),
+                    SwitchListTile.adaptive(
+                      title: const Text('发送已有安排'),
+                      value: value.sendSchedule,
+                      onChanged: _busy
+                          ? null
+                          : (next) => _update(schedule: next),
+                    ),
+                    SwitchListTile.adaptive(
+                      title: const Text('发送完成情况'),
+                      value: value.sendStats,
+                      onChanged: _busy ? null : (next) => _update(stats: next),
+                    ),
+                  ],
+                ),
+                XyGroup(
+                  header: '规划',
+                  footer: '关闭后改用旧版规划：直接给出方案，不会先查空档再排。',
+                  children: [
+                    SwitchListTile.adaptive(
+                      key: const ValueKey('assistant-agent-enabled'),
+                      title: const Text('智能规划（Agent）'),
+                      value: value.agentEnabled,
+                      onChanged: _busy ? null : (next) => _update(agent: next),
+                    ),
+                  ],
+                ),
+                XyGroup(
+                  header: '记忆',
+                  children: [
+                    SwitchListTile.adaptive(
+                      title: const Text('自动记忆'),
+                      value: value.autoMemory,
+                      onChanged: _busy
+                          ? null
+                          : (next) => _update(automatic: next),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const AssistantMemoryPage(),
+                          ),
+                        ),
+                        child: const Text('管理记忆'),
+                      ),
+                    ),
+                  ],
+                ),
                 XyGroup(
                   header: '服务状态',
-                  margin: const EdgeInsets.only(top: 12),
                   children: [
                     XyValueRow(
                       label: Text(
@@ -245,109 +363,6 @@ class _AssistantSettingsPageState extends ConsumerState<AssistantSettingsPage> {
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                  ],
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 12),
-                  NoticeBanner(tone: NoticeTone.error, message: _error!),
-                ],
-                XyGroup(
-                  header: '规划',
-                  children: [
-                    SwitchListTile.adaptive(
-                      key: const ValueKey('assistant-agent-enabled'),
-                      title: const Text('智能规划（Agent）'),
-                      value: value.agentEnabled,
-                      onChanged: _busy ? null : (next) => _update(agent: next),
-                    ),
-                  ],
-                ),
-                XyGroup(
-                  header: '发送范围',
-                  children: [
-                    SwitchListTile.adaptive(
-                      key: const ValueKey('assistant-enabled'),
-                      title: const Text('规划与日记 AI'),
-                      value:
-                          value.consentVersion == assistantConsentVersion &&
-                          value.consentedAt != null,
-                      onChanged: _busy
-                          ? null
-                          : (enabled) async {
-                              if (enabled) {
-                                await Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        const AssistantConsentPage(),
-                                  ),
-                                );
-                              } else {
-                                await _operate(() async {
-                                  await (await _store).memories.revokeConsent();
-                                  ref.invalidate(assistantSettingsProvider);
-                                });
-                              }
-                            },
-                    ),
-                    XyValueRow(
-                      label: Text(
-                        value.consentVersion == assistantConsentVersion
-                            ? '已确认当前版本的数据授权'
-                            : '尚未确认，不会发送请求',
-                      ),
-                      value: TextButton(
-                        onPressed: _busy
-                            ? null
-                            : () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const AssistantConsentPage(),
-                                ),
-                              ),
-                        child: const Text('查看授权'),
-                      ),
-                    ),
-                    SwitchListTile.adaptive(
-                      title: const Text('发送记忆'),
-                      value: value.sendMemories,
-                      onChanged: _busy
-                          ? null
-                          : (next) => _update(memories: next),
-                    ),
-                    SwitchListTile.adaptive(
-                      title: const Text('发送已有安排'),
-                      value: value.sendSchedule,
-                      onChanged: _busy
-                          ? null
-                          : (next) => _update(schedule: next),
-                    ),
-                    SwitchListTile.adaptive(
-                      title: const Text('发送完成情况'),
-                      value: value.sendStats,
-                      onChanged: _busy ? null : (next) => _update(stats: next),
-                    ),
-                  ],
-                ),
-                XyGroup(
-                  header: '记忆',
-                  children: [
-                    SwitchListTile.adaptive(
-                      title: const Text('自动记忆'),
-                      value: value.autoMemory,
-                      onChanged: _busy
-                          ? null
-                          : (next) => _update(automatic: next),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const AssistantMemoryPage(),
-                          ),
-                        ),
-                        child: const Text('管理记忆'),
                       ),
                     ),
                   ],

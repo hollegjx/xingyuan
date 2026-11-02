@@ -44,6 +44,12 @@ void main() {
                 ),
               ),
             );
+            final bubbles = tester.widget<XyEntryBubbles>(
+              find.byType(XyEntryBubbles),
+            );
+            expect(bubbles.entries.map((entry) => entry.tint).toSet(), {
+              buildXyTheme(brightness).colorScheme.primary,
+            });
             final keys = [
               'entry-check-in',
               'entry-quick-note',

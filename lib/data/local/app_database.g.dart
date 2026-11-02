@@ -6136,6 +6136,32 @@ class $AssistantSettingsTable extends AssistantSettings
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _readJournalOnRequestMeta =
+      const VerificationMeta('readJournalOnRequest');
+  @override
+  late final GeneratedColumn<bool> readJournalOnRequest = GeneratedColumn<bool>(
+    'read_journal_on_request',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("read_journal_on_request" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _settingsRevisionMeta = const VerificationMeta(
+    'settingsRevision',
+  );
+  @override
+  late final GeneratedColumn<int> settingsRevision = GeneratedColumn<int>(
+    'settings_revision',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _agentEnabledMeta = const VerificationMeta(
     'agentEnabled',
   );
@@ -6160,6 +6186,8 @@ class $AssistantSettingsTable extends AssistantSettings
     sendSchedule,
     sendStats,
     autoMemory,
+    readJournalOnRequest,
+    settingsRevision,
     agentEnabled,
   ];
   @override
@@ -6230,6 +6258,24 @@ class $AssistantSettingsTable extends AssistantSettings
         autoMemory.isAcceptableOrUnknown(data['auto_memory']!, _autoMemoryMeta),
       );
     }
+    if (data.containsKey('read_journal_on_request')) {
+      context.handle(
+        _readJournalOnRequestMeta,
+        readJournalOnRequest.isAcceptableOrUnknown(
+          data['read_journal_on_request']!,
+          _readJournalOnRequestMeta,
+        ),
+      );
+    }
+    if (data.containsKey('settings_revision')) {
+      context.handle(
+        _settingsRevisionMeta,
+        settingsRevision.isAcceptableOrUnknown(
+          data['settings_revision']!,
+          _settingsRevisionMeta,
+        ),
+      );
+    }
     if (data.containsKey('agent_enabled')) {
       context.handle(
         _agentEnabledMeta,
@@ -6279,6 +6325,14 @@ class $AssistantSettingsTable extends AssistantSettings
         DriftSqlType.bool,
         data['${effectivePrefix}auto_memory'],
       )!,
+      readJournalOnRequest: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}read_journal_on_request'],
+      )!,
+      settingsRevision: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}settings_revision'],
+      )!,
       agentEnabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}agent_enabled'],
@@ -6301,6 +6355,8 @@ class StoredAssistantSettings extends DataClass
   final bool sendSchedule;
   final bool sendStats;
   final bool autoMemory;
+  final bool readJournalOnRequest;
+  final int settingsRevision;
   final bool agentEnabled;
   const StoredAssistantSettings({
     required this.owner,
@@ -6310,6 +6366,8 @@ class StoredAssistantSettings extends DataClass
     required this.sendSchedule,
     required this.sendStats,
     required this.autoMemory,
+    required this.readJournalOnRequest,
+    required this.settingsRevision,
     required this.agentEnabled,
   });
   @override
@@ -6324,6 +6382,8 @@ class StoredAssistantSettings extends DataClass
     map['send_schedule'] = Variable<bool>(sendSchedule);
     map['send_stats'] = Variable<bool>(sendStats);
     map['auto_memory'] = Variable<bool>(autoMemory);
+    map['read_journal_on_request'] = Variable<bool>(readJournalOnRequest);
+    map['settings_revision'] = Variable<int>(settingsRevision);
     map['agent_enabled'] = Variable<bool>(agentEnabled);
     return map;
   }
@@ -6339,6 +6399,8 @@ class StoredAssistantSettings extends DataClass
       sendSchedule: Value(sendSchedule),
       sendStats: Value(sendStats),
       autoMemory: Value(autoMemory),
+      readJournalOnRequest: Value(readJournalOnRequest),
+      settingsRevision: Value(settingsRevision),
       agentEnabled: Value(agentEnabled),
     );
   }
@@ -6356,6 +6418,10 @@ class StoredAssistantSettings extends DataClass
       sendSchedule: serializer.fromJson<bool>(json['sendSchedule']),
       sendStats: serializer.fromJson<bool>(json['sendStats']),
       autoMemory: serializer.fromJson<bool>(json['autoMemory']),
+      readJournalOnRequest: serializer.fromJson<bool>(
+        json['readJournalOnRequest'],
+      ),
+      settingsRevision: serializer.fromJson<int>(json['settingsRevision']),
       agentEnabled: serializer.fromJson<bool>(json['agentEnabled']),
     );
   }
@@ -6370,6 +6436,8 @@ class StoredAssistantSettings extends DataClass
       'sendSchedule': serializer.toJson<bool>(sendSchedule),
       'sendStats': serializer.toJson<bool>(sendStats),
       'autoMemory': serializer.toJson<bool>(autoMemory),
+      'readJournalOnRequest': serializer.toJson<bool>(readJournalOnRequest),
+      'settingsRevision': serializer.toJson<int>(settingsRevision),
       'agentEnabled': serializer.toJson<bool>(agentEnabled),
     };
   }
@@ -6382,6 +6450,8 @@ class StoredAssistantSettings extends DataClass
     bool? sendSchedule,
     bool? sendStats,
     bool? autoMemory,
+    bool? readJournalOnRequest,
+    int? settingsRevision,
     bool? agentEnabled,
   }) => StoredAssistantSettings(
     owner: owner ?? this.owner,
@@ -6391,6 +6461,8 @@ class StoredAssistantSettings extends DataClass
     sendSchedule: sendSchedule ?? this.sendSchedule,
     sendStats: sendStats ?? this.sendStats,
     autoMemory: autoMemory ?? this.autoMemory,
+    readJournalOnRequest: readJournalOnRequest ?? this.readJournalOnRequest,
+    settingsRevision: settingsRevision ?? this.settingsRevision,
     agentEnabled: agentEnabled ?? this.agentEnabled,
   );
   StoredAssistantSettings copyWithCompanion(AssistantSettingsCompanion data) {
@@ -6412,6 +6484,12 @@ class StoredAssistantSettings extends DataClass
       autoMemory: data.autoMemory.present
           ? data.autoMemory.value
           : this.autoMemory,
+      readJournalOnRequest: data.readJournalOnRequest.present
+          ? data.readJournalOnRequest.value
+          : this.readJournalOnRequest,
+      settingsRevision: data.settingsRevision.present
+          ? data.settingsRevision.value
+          : this.settingsRevision,
       agentEnabled: data.agentEnabled.present
           ? data.agentEnabled.value
           : this.agentEnabled,
@@ -6428,6 +6506,8 @@ class StoredAssistantSettings extends DataClass
           ..write('sendSchedule: $sendSchedule, ')
           ..write('sendStats: $sendStats, ')
           ..write('autoMemory: $autoMemory, ')
+          ..write('readJournalOnRequest: $readJournalOnRequest, ')
+          ..write('settingsRevision: $settingsRevision, ')
           ..write('agentEnabled: $agentEnabled')
           ..write(')'))
         .toString();
@@ -6442,6 +6522,8 @@ class StoredAssistantSettings extends DataClass
     sendSchedule,
     sendStats,
     autoMemory,
+    readJournalOnRequest,
+    settingsRevision,
     agentEnabled,
   );
   @override
@@ -6455,6 +6537,8 @@ class StoredAssistantSettings extends DataClass
           other.sendSchedule == this.sendSchedule &&
           other.sendStats == this.sendStats &&
           other.autoMemory == this.autoMemory &&
+          other.readJournalOnRequest == this.readJournalOnRequest &&
+          other.settingsRevision == this.settingsRevision &&
           other.agentEnabled == this.agentEnabled);
 }
 
@@ -6467,6 +6551,8 @@ class AssistantSettingsCompanion
   final Value<bool> sendSchedule;
   final Value<bool> sendStats;
   final Value<bool> autoMemory;
+  final Value<bool> readJournalOnRequest;
+  final Value<int> settingsRevision;
   final Value<bool> agentEnabled;
   final Value<int> rowid;
   const AssistantSettingsCompanion({
@@ -6477,6 +6563,8 @@ class AssistantSettingsCompanion
     this.sendSchedule = const Value.absent(),
     this.sendStats = const Value.absent(),
     this.autoMemory = const Value.absent(),
+    this.readJournalOnRequest = const Value.absent(),
+    this.settingsRevision = const Value.absent(),
     this.agentEnabled = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -6488,6 +6576,8 @@ class AssistantSettingsCompanion
     this.sendSchedule = const Value.absent(),
     this.sendStats = const Value.absent(),
     this.autoMemory = const Value.absent(),
+    this.readJournalOnRequest = const Value.absent(),
+    this.settingsRevision = const Value.absent(),
     this.agentEnabled = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : owner = Value(owner);
@@ -6499,6 +6589,8 @@ class AssistantSettingsCompanion
     Expression<bool>? sendSchedule,
     Expression<bool>? sendStats,
     Expression<bool>? autoMemory,
+    Expression<bool>? readJournalOnRequest,
+    Expression<int>? settingsRevision,
     Expression<bool>? agentEnabled,
     Expression<int>? rowid,
   }) {
@@ -6510,6 +6602,9 @@ class AssistantSettingsCompanion
       if (sendSchedule != null) 'send_schedule': sendSchedule,
       if (sendStats != null) 'send_stats': sendStats,
       if (autoMemory != null) 'auto_memory': autoMemory,
+      if (readJournalOnRequest != null)
+        'read_journal_on_request': readJournalOnRequest,
+      if (settingsRevision != null) 'settings_revision': settingsRevision,
       if (agentEnabled != null) 'agent_enabled': agentEnabled,
       if (rowid != null) 'rowid': rowid,
     });
@@ -6523,6 +6618,8 @@ class AssistantSettingsCompanion
     Value<bool>? sendSchedule,
     Value<bool>? sendStats,
     Value<bool>? autoMemory,
+    Value<bool>? readJournalOnRequest,
+    Value<int>? settingsRevision,
     Value<bool>? agentEnabled,
     Value<int>? rowid,
   }) {
@@ -6534,6 +6631,8 @@ class AssistantSettingsCompanion
       sendSchedule: sendSchedule ?? this.sendSchedule,
       sendStats: sendStats ?? this.sendStats,
       autoMemory: autoMemory ?? this.autoMemory,
+      readJournalOnRequest: readJournalOnRequest ?? this.readJournalOnRequest,
+      settingsRevision: settingsRevision ?? this.settingsRevision,
       agentEnabled: agentEnabled ?? this.agentEnabled,
       rowid: rowid ?? this.rowid,
     );
@@ -6563,6 +6662,14 @@ class AssistantSettingsCompanion
     if (autoMemory.present) {
       map['auto_memory'] = Variable<bool>(autoMemory.value);
     }
+    if (readJournalOnRequest.present) {
+      map['read_journal_on_request'] = Variable<bool>(
+        readJournalOnRequest.value,
+      );
+    }
+    if (settingsRevision.present) {
+      map['settings_revision'] = Variable<int>(settingsRevision.value);
+    }
     if (agentEnabled.present) {
       map['agent_enabled'] = Variable<bool>(agentEnabled.value);
     }
@@ -6582,6 +6689,8 @@ class AssistantSettingsCompanion
           ..write('sendSchedule: $sendSchedule, ')
           ..write('sendStats: $sendStats, ')
           ..write('autoMemory: $autoMemory, ')
+          ..write('readJournalOnRequest: $readJournalOnRequest, ')
+          ..write('settingsRevision: $settingsRevision, ')
           ..write('agentEnabled: $agentEnabled, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -29842,6 +29951,8 @@ typedef $$AssistantSettingsTableCreateCompanionBuilder =
       Value<bool> sendSchedule,
       Value<bool> sendStats,
       Value<bool> autoMemory,
+      Value<bool> readJournalOnRequest,
+      Value<int> settingsRevision,
       Value<bool> agentEnabled,
       Value<int> rowid,
     });
@@ -29854,6 +29965,8 @@ typedef $$AssistantSettingsTableUpdateCompanionBuilder =
       Value<bool> sendSchedule,
       Value<bool> sendStats,
       Value<bool> autoMemory,
+      Value<bool> readJournalOnRequest,
+      Value<int> settingsRevision,
       Value<bool> agentEnabled,
       Value<int> rowid,
     });
@@ -29899,6 +30012,16 @@ class $$AssistantSettingsTableFilterComposer
 
   ColumnFilters<bool> get autoMemory => $composableBuilder(
     column: $table.autoMemory,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get readJournalOnRequest => $composableBuilder(
+    column: $table.readJournalOnRequest,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get settingsRevision => $composableBuilder(
+    column: $table.settingsRevision,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -29952,6 +30075,16 @@ class $$AssistantSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get readJournalOnRequest => $composableBuilder(
+    column: $table.readJournalOnRequest,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get settingsRevision => $composableBuilder(
+    column: $table.settingsRevision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get agentEnabled => $composableBuilder(
     column: $table.agentEnabled,
     builder: (column) => ColumnOrderings(column),
@@ -29995,6 +30128,16 @@ class $$AssistantSettingsTableAnnotationComposer
 
   GeneratedColumn<bool> get autoMemory => $composableBuilder(
     column: $table.autoMemory,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get readJournalOnRequest => $composableBuilder(
+    column: $table.readJournalOnRequest,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get settingsRevision => $composableBuilder(
+    column: $table.settingsRevision,
     builder: (column) => column,
   );
 
@@ -30051,6 +30194,8 @@ class $$AssistantSettingsTableTableManager
                 Value<bool> sendSchedule = const Value.absent(),
                 Value<bool> sendStats = const Value.absent(),
                 Value<bool> autoMemory = const Value.absent(),
+                Value<bool> readJournalOnRequest = const Value.absent(),
+                Value<int> settingsRevision = const Value.absent(),
                 Value<bool> agentEnabled = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AssistantSettingsCompanion(
@@ -30061,6 +30206,8 @@ class $$AssistantSettingsTableTableManager
                 sendSchedule: sendSchedule,
                 sendStats: sendStats,
                 autoMemory: autoMemory,
+                readJournalOnRequest: readJournalOnRequest,
+                settingsRevision: settingsRevision,
                 agentEnabled: agentEnabled,
                 rowid: rowid,
               ),
@@ -30073,6 +30220,8 @@ class $$AssistantSettingsTableTableManager
                 Value<bool> sendSchedule = const Value.absent(),
                 Value<bool> sendStats = const Value.absent(),
                 Value<bool> autoMemory = const Value.absent(),
+                Value<bool> readJournalOnRequest = const Value.absent(),
+                Value<int> settingsRevision = const Value.absent(),
                 Value<bool> agentEnabled = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AssistantSettingsCompanion.insert(
@@ -30083,6 +30232,8 @@ class $$AssistantSettingsTableTableManager
                 sendSchedule: sendSchedule,
                 sendStats: sendStats,
                 autoMemory: autoMemory,
+                readJournalOnRequest: readJournalOnRequest,
+                settingsRevision: settingsRevision,
                 agentEnabled: agentEnabled,
                 rowid: rowid,
               ),

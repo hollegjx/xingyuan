@@ -60,7 +60,7 @@ void main() {
     app.container.read(notificationOpenProvider.notifier).opened();
     await tester.pumpAndSettle();
     expect(find.text('设置'), findsNothing);
-    expect(find.text('今日已完成 0 项'), findsOneWidget);
+    expect(find.text('已点亮 0 颗星'), findsOneWidget);
     expect((await app.repository.loadGoals()).single.id, id);
     expect((await app.repository.loadGoals()).single.completions, isEmpty);
   });

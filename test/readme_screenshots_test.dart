@@ -150,7 +150,7 @@ void main() {
       '今天的面包很好吃，下次试试另一种口味。',
     ]);
     await tester.pumpAndSettle();
-    expect(find.text('今日已完成 2 项'), findsOneWidget);
+    expect(find.text('已点亮 2 颗星'), findsOneWidget);
     expect(find.text('整理书桌'), findsOneWidget);
     await _capture(tester, boundary, 'today');
 
@@ -299,7 +299,7 @@ void main() {
 
     await tapVisible(
       tester,
-      find.byKey(ValueKey('open-proposal-${proposal.id}')),
+      find.byKey(ValueKey('adjust-proposal-${proposal.id}')),
     );
     await tapVisible(
       tester,

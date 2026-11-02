@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:xingyuan_core/xingyuan_core.dart';
+
 import 'agent_ledger.dart';
 import 'agent_protocol.dart';
 
@@ -58,7 +60,9 @@ class AgentRunner {
     final settled = ledger.finish(reservation, request, reply);
     return AgentTurnResult(
       {
-        'protocol': agentProtocol,
+        'protocol': request is AssistantAgentRequest
+            ? assistantAgentProtocol
+            : agentProtocol,
         'request_id': request.requestId,
         'run_id': reservation.runId,
         'turn': settled.calls,

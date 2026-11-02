@@ -41,7 +41,7 @@ class ScriptedRelay extends Relay {
     : super(
         AssistantModelClient(
           endpoint: Uri.parse(
-            'https://model.example.invalid/v1/chat/completions',
+            'https://model-relay.example.com/v1/chat/completions',
           ),
           apiKey: 'synthetic-not-a-credential',
         ),
@@ -117,18 +117,18 @@ void main() {
   test('only the exact existing HTTPS endpoint is allowed', () {
     expect(
       allowedEndpoint(
-        Uri.parse('https://model.example.invalid/v1/chat/completions'),
+        Uri.parse('https://model-relay.example.com/v1/chat/completions'),
       ),
       true,
     );
     for (final url in [
-      'http://model.example.invalid/v1/chat/completions',
-      'https://model.example.invalid.other/v1/chat/completions',
-      'https://model.example.invalid:444/v1/chat/completions',
-      'https://x@model.example.invalid/v1/chat/completions',
-      'https://model.example.invalid/v1/chat/completions?x=1',
-      'https://model.example.invalid/v1/chat/completions#x',
-      'https://model.example.invalid/v1/responses',
+      'http://model-relay.example.com/v1/chat/completions',
+      'https://model-relay.example.com.other/v1/chat/completions',
+      'https://model-relay.example.com:444/v1/chat/completions',
+      'https://x@model-relay.example.com/v1/chat/completions',
+      'https://model-relay.example.com/v1/chat/completions?x=1',
+      'https://model-relay.example.com/v1/chat/completions#x',
+      'https://model-relay.example.com/v1/responses',
     ]) {
       expect(allowedEndpoint(Uri.parse(url)), false);
     }

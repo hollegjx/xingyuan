@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -115,6 +116,10 @@ void main() {
         );
         await tapVisible(
           tester,
+          find.byKey(const ValueKey('edit-plan-item-1')),
+        );
+        await tapVisible(
+          tester,
           find.byKey(const ValueKey('delete-plan-item-1')),
         );
         final store = LocalProposalStore(app.repository);
@@ -136,7 +141,7 @@ void main() {
         expect(created.scheduleOn(app.clock.day).durationMinutes, 45);
         expect(created.reminder.enabled, isTrue);
         expect(app.notifications.requests, isEmpty);
-        expect(find.text('已创建 1 项'), findsOneWidget);
+        expect(find.text('已添加 1 项'), findsOneWidget);
         await tapVisible(tester, find.byTooltip('查看对应日期'));
         expect(find.text('2026年10月'), findsOneWidget);
         await goBack(tester);
@@ -348,7 +353,41 @@ void main() {
         isTrue,
       );
       await tapVisible(tester, find.byKey(const ValueKey('edit-plan-item-0')));
-      await tapVisible(tester, find.widgetWithText(CheckboxListTile, '周一'));
+      final monday = find.byKey(const ValueKey('plan-weekday-1'));
+      await tester.ensureVisible(monday);
+      await tester.pumpAndSettle();
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpAndSettle();
+        final node = tester.getSemantics(monday);
+        expect(node.getSemanticsData().label, '周一');
+        expect(
+          node.getSemanticsData().hasAction(ui.SemanticsAction.tap),
+          isTrue,
+        );
+        expect(
+          node.getSemanticsData().flagsCollection.isSelected,
+          ui.Tristate.isTrue,
+        );
+        tester
+            .renderObject(monday)
+            .owner!
+            .semanticsOwner!
+            .performAction(node.id, ui.SemanticsAction.tap);
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .getSemantics(monday)
+              .getSemanticsData()
+              .flagsCollection
+              .isSelected,
+          ui.Tristate.isFalse,
+        );
+      } finally {
+        semantics.dispose();
+      }
+      await tapVisible(tester, monday);
+      await tapVisible(tester, monday);
       await tapVisible(
         tester,
         find.byKey(const ValueKey('assistant-save-plan-item')),
@@ -361,4 +400,52 @@ void main() {
       expect(await app.repository.loadGoals(), isEmpty);
     },
   );
+
+  for (final scale in [1.0, 2.0, 3.0]) {
+    testUiWidgets('C40 per-item bell and cancelled row edit at ${scale}x', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final app = UiHarness();
+      final id = await seed(app);
+      final store = LocalProposalStore(app.repository);
+      await app.mount(tester);
+      await open(tester, id);
+      final bell = find.byKey(const ValueKey('plan-reminder-item-1'));
+      expect(tester.widget<IconButton>(bell).tooltip, '开启提醒');
+      await tapVisible(tester, bell);
+      expect(app.permissions.requests, 1);
+      expect(tester.widget<IconButton>(bell).tooltip, '关闭提醒');
+      final withReminder = await store.read(id);
+      final draft = PlanPreview.decode(withReminder.itemsJson);
+      expect(draft.items[0].reminder, isFalse);
+      expect(draft.items[1].reminder, isTrue);
+      expect(await app.repository.loadGoals(), isEmpty);
+      expect(app.notifications.requests, isEmpty);
+
+      await tapVisible(tester, find.text('TEST item 1'));
+      await tester.enterText(
+        find.byKey(const ValueKey('assistant-plan-title')),
+        'TEST cancelled edit',
+      );
+      await tapVisible(tester, find.widgetWithText(TextButton, '取消'));
+      expect((await store.read(id)).itemsJson, withReminder.itemsJson);
+      expect(find.text('TEST cancelled edit'), findsNothing);
+      await tapVisible(tester, bell);
+      expect(tester.widget<IconButton>(bell).tooltip, '开启提醒');
+      expect(
+        PlanPreview.decode((await store.read(id)).itemsJson).items
+            .every((item) => !item.reminder),
+        isTrue,
+      );
+      expect(await app.repository.loadGoals(), isEmpty);
+      expect(app.notifications.requests, isEmpty);
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

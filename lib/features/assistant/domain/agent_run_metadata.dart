@@ -10,6 +10,9 @@ const agentToolLabels = {
   'find_free_slots': '寻找空档',
   'validate_plan': '检查候选计划',
   'submit_plan_draft': '检查最终草稿',
+  'get_day_summary': '读取当天回顾',
+  'get_journal_text': '读取记录文字',
+  'create_diary_draft': '准备日记建议',
 };
 const agentStatusLabels = {
   'ok': '完成',
@@ -20,6 +23,16 @@ const agentStatusLabels = {
   'invalid': '需调整',
   'duplicate': '使用本轮缓存',
 };
+
+String agentUnknownScheduleMessage(Map<String, dynamic> issue) {
+  final reference = issue['with'];
+  if (reference is Map<String, dynamic> &&
+      reference['title'] is String &&
+      reference['start_minute'] is int) {
+    return '可能和「${reference['title']}」${formatMinute(reference['start_minute'] as int)} 冲突';
+  }
+  return '无法完整判断此项的冲突';
+}
 
 class AgentTraceEntry {
   const AgentTraceEntry(this.tool, this.status, this.milliseconds);
@@ -40,30 +53,57 @@ class AgentRunMetadata {
     Iterable<AgentTraceEntry> trace = const [],
     Iterable<int> partial = const [],
     Map<String, int> dailyCaps = const {},
-  }) : statuses = Set.unmodifiable(statuses),
+    List<Map<String, dynamic>> readReceipts = const [],
+    this.assistantFallback = false,
+    this.recordHistoryWithheld = false,
+  }) : readReceipts = List.unmodifiable(
+         readReceipts.map((r) => Map<String, dynamic>.unmodifiable(r)),
+       ),
+       statuses = Set.unmodifiable(statuses),
        trace = List.unmodifiable(trace),
        partial = Set.unmodifiable(partial),
        dailyCaps = Map.unmodifiable(dailyCaps);
   final CalendarDate date;
+  final List<Map<String, dynamic>> readReceipts;
+  final bool assistantFallback;
+  final bool recordHistoryWithheld;
   final Set<String> statuses;
   final List<AgentTraceEntry> trace;
   final Set<int> partial;
   final Map<String, int> dailyCaps;
-  List<String> get banners => agentDataBanners(statuses);
+  List<String> get banners => agentDataBanners(
+    readReceipts.isEmpty
+        ? statuses
+        : statuses.where(
+            (status) => trace.any(
+              (row) => agentTools.contains(row.tool) && row.status == status,
+            ),
+          ),
+  );
   String encode() => jsonEncode({
     'date': date.key,
     'statuses': statuses.toList()..sort(),
     'trace': trace.map((row) => row.toJson()).toList(),
     'partial': partial.toList()..sort(),
     'daily_caps': dailyCaps,
+    if (readReceipts.isNotEmpty) 'read_receipts': readReceipts,
+    if (assistantFallback) 'assistant_fallback': true,
+    if (recordHistoryWithheld) 'record_history_withheld': true,
   });
   factory AgentRunMetadata.decode(String text) {
-    final map = agentObject(decodeAssistantJson(text), {
+    final decoded = decodeAssistantJson(text);
+    final map = agentObject(decoded, {
       'date',
       'statuses',
       'trace',
       'partial',
       'daily_caps',
+      if (decoded is Map && decoded.containsKey('read_receipts'))
+        'read_receipts',
+      if (decoded is Map && decoded.containsKey('record_history_withheld'))
+        'record_history_withheld',
+      if (decoded is Map && decoded.containsKey('assistant_fallback'))
+        'assistant_fallback',
     });
     final date = CalendarDate.parse(map['date'] as String);
     if (map['statuses'] is! List ||
@@ -86,7 +126,7 @@ class AgentRunMetadata {
     final trace = <AgentTraceEntry>[];
     for (final row in map['trace'] as List) {
       final value = agentObject(row, {'tool', 'status', 'duration_ms'});
-      if (!agentTools.contains(value['tool']) ||
+      if (!assistantAgentTools.contains(value['tool']) ||
           !agentStatusLabels.containsKey(value['status']) ||
           value['duration_ms'] is! int ||
           (value['duration_ms'] as int) < 0 ||
@@ -113,12 +153,80 @@ class AgentRunMetadata {
         throw const FormatException('Invalid daily cap');
       }
     }
+    if (map.containsKey('record_history_withheld') &&
+        map['record_history_withheld'] != true) {
+      throw const FormatException('Invalid history notice');
+    }
+    final rawReceipts = map['read_receipts'] ?? const [];
+    if (rawReceipts is! List ||
+        rawReceipts.length > 6 ||
+        (map.containsKey('assistant_fallback') &&
+            map['assistant_fallback'] != true)) {
+      throw const FormatException('Invalid read receipts');
+    }
+    final receipts = <Map<String, dynamic>>[];
+    for (final raw in rawReceipts) {
+      final r = agentObject(raw, {
+        'day',
+        'kinds',
+        'count',
+        'status',
+        'cached',
+        if (raw is Map && raw.containsKey('reason')) 'reason',
+        if (raw is Map && raw.containsKey('counts')) 'counts',
+      });
+      assistantRecordDay(r['day'], date);
+      if (r['kinds'] is! List ||
+          (r['kinds'] as List).isEmpty ||
+          (r['kinds'] as List).length > 2 ||
+          (r['kinds'] as List).any(
+            (k) => !['summary', 'quickNote', 'diary'].contains(k),
+          ) ||
+          r['count'] is! int ||
+          (r['count'] as int) < 0 ||
+          (r['count'] as int) > 60 ||
+          ![
+            'ok',
+            'truncated',
+            'failed',
+            'not_authorized',
+          ].contains(r['status']) ||
+          r['cached'] is! bool ||
+          (['failed', 'not_authorized'].contains(r['status']) &&
+              r['count'] != 0)) {
+        throw const FormatException('Invalid read receipt');
+      }
+      if (r['reason'] != null &&
+          ![
+            'disabled',
+            'denied',
+            'scope',
+            'context_disabled',
+          ].contains(r['reason'])) {
+        throw const FormatException('Invalid receipt reason');
+      }
+      if (r.containsKey('counts')) {
+        final counts = agentObject(
+          r['counts'],
+          (r['kinds'] as List).cast<String>().toSet(),
+        );
+        if (counts.values.any((n) => n is! int || n < 0 || n > 60) ||
+            counts.values.fold<int>(0, (total, n) => total + (n as int)) !=
+                r['count']) {
+          throw const FormatException('Invalid receipt counts');
+        }
+      }
+      receipts.add(r);
+    }
     return AgentRunMetadata(
       date: date,
       statuses: statuses,
       trace: trace,
       partial: partial,
       dailyCaps: caps,
+      readReceipts: receipts,
+      assistantFallback: map['assistant_fallback'] == true,
+      recordHistoryWithheld: map['record_history_withheld'] == true,
     );
   }
 }

@@ -46,7 +46,7 @@ final input = find.byKey(const ValueKey('assistant-input'));
 final send = find.byKey(const ValueKey('assistant-send'));
 final history = find.byKey(const ValueKey('assistant-conversation-scroll'));
 final planningBar = find.byWidgetPredicate(
-  (w) => w.runtimeType.toString() == '_PlanningBar',
+  (w) => w.runtimeType.toString() == '_PlanningTitle',
 );
 
 TurnResponse diaryReply(TurnRequest request) => TurnResponse.fromJson({
@@ -137,12 +137,7 @@ void main() {
             wrapApp: (child) => RepaintBoundary(key: boundary, child: child),
           );
           await openPlanning(tester);
-          for (final finder in [
-            find.byWidgetPredicate(
-              (w) => w.runtimeType.toString() == '_PlanningBar',
-            ),
-            find.byType(XyComposer),
-          ]) {
+          for (final finder in [planningBar, find.byType(XyComposer)]) {
             final box = tester.renderObject<RenderBox>(finder);
             debugPrint(
               'R4 ${tester.widget(finder).runtimeType}: size=${box.size}, constraints=${box.constraints}, top=${box.localToGlobal(Offset.zero)}',
@@ -155,8 +150,8 @@ void main() {
             boundary,
             'entry-$label',
             size,
-            text: find.descendant(of: planningBar, matching: find.text('规划')),
-            expectedText: '规划',
+            text: find.descendant(of: planningBar, matching: find.text('助手')),
+            expectedText: '助手',
           );
           await tester.enterText(input, '读书');
           tester.view.viewInsets = const FakeViewPadding(bottom: 200);
@@ -284,10 +279,13 @@ void main() {
       expect(cancel.hitTestable(), findsOneWidget);
       expect(tester.getSize(cancel).height, greaterThanOrEqualTo(44));
       final label = tester.renderObject<RenderParagraph>(
-        find.descendant(of: cancel, matching: find.byType(RichText)),
+        find.descendant(
+          of: find.descendant(of: cancel, matching: find.text('停止')),
+          matching: find.byType(RichText),
+        ),
       );
       final boxes = label.getBoxesForSelection(
-        const TextSelection(baseOffset: 0, extentOffset: 4),
+        const TextSelection(baseOffset: 0, extentOffset: 2),
       );
       expect(boxes.map((box) => box.top).toSet(), hasLength(1));
       expect(label.textScaler.scale(17), 68);
@@ -296,8 +294,8 @@ void main() {
         boundary,
         'cancel-${brightness.name}',
         size,
-        text: find.descendant(of: cancel, matching: find.text('取消等待')),
-        expectedText: '取消等待',
+        text: find.descendant(of: cancel, matching: find.text('停止')),
+        expectedText: '停止',
       );
       await tapVisible(tester, cancel);
       expect(controller.busy, isFalse);

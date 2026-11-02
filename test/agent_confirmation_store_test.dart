@@ -157,6 +157,7 @@ void main() {
           title: 'TEST unknown today',
           kind: GoalKind.single,
           plannedDay: clock.day,
+          startMinute: 600, // C36 preserves partial coverage with a timed row.
         ),
       );
       final preview = plan();
@@ -181,6 +182,103 @@ void main() {
       );
     },
   );
+  for (final start in <int?>[null, 420, 630]) {
+    test(
+      'C36 nonoverlapping row $start does not stale a valid confirmation',
+      () async {
+        final preview = plan();
+        final id = await save(preview);
+        final checked = await token(id, preview);
+        await goals.create(
+          GoalDraft(
+            title: 'TEST flexible or elsewhere',
+            kind: GoalKind.single,
+            plannedDay: clock.day,
+            startMinute: start,
+          ),
+        );
+        final fresh = (await store.inspectAgent(id, preview))!;
+        expect(fresh.validation.issues, isEmpty);
+        expect(fresh.token, checked);
+        expect(
+          await store.apply(id, preview, expectedAgentValidation: checked),
+          hasLength(1),
+        );
+        expect(await goals.loadGoals(), hasLength(2));
+      },
+    );
+  }
+
+  test(
+    'C36 token binds every overlapping unknown, not only the earliest label',
+    () async {
+      Future<int> add(String title, int start) => goals.create(
+        GoalDraft(
+          title: title,
+          kind: GoalKind.single,
+          plannedDay: clock.day,
+          startMinute: start,
+        ),
+      );
+      await add('TEST earliest', 570);
+      final preview = plan();
+      final id = await save(preview);
+      final first = (await store.inspectAgent(id, preview))!;
+      expect(first.validation.partialIndexes, {0});
+      expect(first.validation.unknownSchedule, hasLength(1));
+      await expectLater(
+        store.apply(id, preview, expectedAgentValidation: first.token),
+        throwsA(isA<GoalRuleException>()),
+      );
+      final later = await add('TEST later overlap', 600);
+      final second = (await store.inspectAgent(id, preview))!;
+      expect(second.validation.toJson(), first.validation.toJson());
+      expect(second.validation.unknownSchedule, hasLength(2));
+      expect(second.token, isNot(first.token));
+      await expectLater(
+        store.apply(
+          id,
+          preview,
+          expectedAgentValidation: first.token,
+          partialAcknowledged: true,
+        ),
+        throwsA(isA<AgentPlanChanged>()),
+      );
+      await goals.edit(
+        later,
+        GoalDraft(
+          title: 'TEST renamed overlap',
+          kind: GoalKind.single,
+          plannedDay: clock.day,
+          startMinute: 600,
+        ),
+      );
+      final third = (await store.inspectAgent(id, preview))!;
+      expect(third.validation.toJson(), second.validation.toJson());
+      expect(third.token, isNot(second.token));
+      await expectLater(
+        store.apply(
+          id,
+          preview,
+          expectedAgentValidation: second.token,
+          partialAcknowledged: true,
+        ),
+        throwsA(isA<AgentPlanChanged>()),
+      );
+      expect((await store.read(id)).status, 'draft');
+      expect(await goals.loadGoals(), hasLength(2));
+      expect(
+        await store.apply(
+          id,
+          preview,
+          expectedAgentValidation: third.token,
+          partialAcknowledged: true,
+        ),
+        hasLength(1),
+      );
+    },
+  );
+
   test(
     'future-day draft remains valid after midnight when no constraints changed',
     () async {

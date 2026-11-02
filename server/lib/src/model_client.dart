@@ -85,7 +85,12 @@ class AssistantModelClient {
         }
         try {
           final raw = decodeAssistantJson(content);
-          return AgentModelReply.parse(raw, request.now.date);
+          return AgentModelReply.parse(
+            raw,
+            request.now.date,
+            extended: request is AssistantAgentRequest,
+            contextual: assistantContextEnabled(request),
+          );
         } on FormatException {
           return stop('invalid_model_output', detail: 'response_json');
         }

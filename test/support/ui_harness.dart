@@ -9,6 +9,7 @@ import 'package:habit_checkin/data/local/local_goal_repository.dart';
 import 'package:habit_checkin/features/assistant/assistant_providers.dart';
 import 'package:habit_checkin/features/analysis/analysis_providers.dart';
 import 'package:habit_checkin/features/assistant/data/assistant_service.dart';
+import 'package:habit_checkin/features/assistant/data/local_conversation_store.dart';
 import 'package:habit_checkin/features/assistant/data/device_credential_store.dart';
 import 'package:habit_checkin/features/reminders/notification_permissions.dart';
 import 'package:habit_checkin/features/records/data/record_photo_files.dart';
@@ -77,6 +78,7 @@ class UiHarness {
     WidgetTester tester, {
     PlanningService? planningService,
     AssistantService? assistantService,
+    LocalConversationStore? assistantStore,
     DayAnalysisService? dayAnalysisService,
     JournalAiService? journalAiService,
     CompanionService? companionService,
@@ -115,6 +117,8 @@ class UiHarness {
                 .overrideWith((ref) => entry.value),
           if (assistantService != null)
             assistantServiceProvider.overrideWithValue(assistantService),
+          if (assistantStore != null)
+            assistantStoreProvider.overrideWith((ref) async => assistantStore),
           if (assistantCredentials != null)
             assistantCredentialProvider.overrideWithValue(assistantCredentials),
           if (planningService != null)

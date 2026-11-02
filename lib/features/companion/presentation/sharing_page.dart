@@ -574,17 +574,20 @@ class SharedRecordCard extends ConsumerWidget {
     final xy = context.xy;
     final mine = record.authorId == controller.store.memberId;
     final replies = controller.replies[record.id]?.length ?? 0;
+    // A feed entry reads like a message: who and when on one line, then the
+    // goal, the note and photos indented beneath, and a quiet completion line.
+    final completed = record.completedAt;
     return Card(
       child: InkWell(
         onTap: onOpen,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+          padding: const EdgeInsets.fromLTRB(14, 10, 4, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
                 children: [
-                  AuthorMark(mine: mine),
+                  AuthorMark(mine: mine, size: 24),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text.rich(
@@ -612,51 +615,25 @@ class SharedRecordCard extends ConsumerWidget {
                       key: ValueKey('open-replies-${record.id}'),
                       tooltip: '查看和回复',
                       onPressed: onOpen,
-                      color: xy.muted,
+                      color: xy.faint,
                       icon: Badge.count(
                         count: replies,
                         isLabelVisible: replies > 0,
                         backgroundColor: xy.partner,
-                        child: const Icon(CupertinoIcons.chat_bubble),
+                        child: const Icon(CupertinoIcons.chat_bubble, size: 20),
                       ),
                     ),
                 ],
               ),
-              const SizedBox(height: 10),
               Padding(
-                padding: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.only(left: 34, right: 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Row(
-                      children: [
-                        StarMark(
-                          lit: record.completedAt != null,
-                          size: 16,
-                          glow: false,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            record.title,
-                            style: theme.textTheme.titleMedium,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (record.completedAt != null)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 22),
-                        child: Text(
-                          '已完成 · ${momentLabel(record.completedAt!, now: now)}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: xy.success,
-                          ),
-                        ),
-                      ),
+                    Text(record.title, style: theme.textTheme.titleMedium),
                     if (record.text.isNotEmpty)
                       Padding(
-                        padding: const EdgeInsets.only(top: 10),
+                        padding: const EdgeInsets.only(top: 4),
                         child: Text(
                           record.text,
                           style: theme.textTheme.bodyLarge,
@@ -673,10 +650,13 @@ class SharedRecordCard extends ConsumerWidget {
                               color: xy.muted,
                             ),
                             const SizedBox(width: 6),
-                            Text(
-                              '${record.photoIds.length} 张照片',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: xy.muted,
+                            // The indent leaves less room at large text; let it wrap.
+                            Flexible(
+                              child: Text(
+                                '${record.photoIds.length} 张照片',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: xy.muted,
+                                ),
                               ),
                             ),
                           ],
@@ -698,6 +678,24 @@ class SharedRecordCard extends ConsumerWidget {
                                 recordId: record.id,
                                 id: photo,
                               ),
+                          ],
+                        ),
+                      ),
+                    if (completed != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Row(
+                          children: [
+                            const StarMark(lit: true, size: 12, glow: false),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                '已完成 · ${momentLabel(completed, now: now)}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: xy.muted,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),

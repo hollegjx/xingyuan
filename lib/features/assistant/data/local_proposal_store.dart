@@ -264,8 +264,8 @@ class LocalProposalStore {
       today: today,
       dailyCaps: metadata.dailyCaps,
     );
-    // Bind acknowledgement to the actual unknown records, not only the
-    // affected item indexes. This digest stays local and is never logged.
+    // C36 binds every overlapping unknown-duration record, not just the first
+    // displayed reference. This digest stays local and is never logged.
     final token = sha256
         .convert(
           utf8.encode(
@@ -273,9 +273,7 @@ class LocalProposalStore {
               'preview': preview.encode(),
               'validation': validation.toJson(),
               'unknown_schedule': [
-                for (final row in schedule)
-                  if (row.incomplete && dates.contains(row.date.key))
-                    row.toJson(),
+                for (final row in validation.unknownSchedule) row.toJson(),
               ],
             }),
           ),

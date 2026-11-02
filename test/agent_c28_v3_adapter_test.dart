@@ -315,10 +315,20 @@ void main() {
         ]),
         Directory.current.path,
       );
-      expect(report['passed'], 20);
+      // C36 changes the product rule, not frozen v3 fixtures or historical scores.
+      expect(report['passed'], 18);
       expect(report['executed'], 20);
-      expect(report['failed'], 0);
+      expect(report['failed'], 2);
       expect(report['incomplete'], 0);
+      final changed = (report['cases'] as List)
+          .map(object)
+          .where((row) => row['status'] == 'fail')
+          .toList();
+      expect(changed.map((row) => row['case_id']), ['S06', 'S07']);
+      for (final row in changed) {
+        expect(row['validation'], 'ok');
+        expect(object(row['checks'])['unknown_schedule_not_ok'], 'fail');
+      }
       final meta = object(report['metadata']);
       expect(meta['fixture_version'], 'agent-c26-v3');
       final old = driverMetadata(Directory.current.path, live: false).data;

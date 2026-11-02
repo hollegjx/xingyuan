@@ -44,3 +44,10 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  fonts:
+    - family: XySerif
+      fonts:
+        - asset: assets/fonts/XySerif-400.ttf
+          weight: 400
+        - asset: assets/fonts/XySerif-600.ttf
+          weight: 600

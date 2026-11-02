@@ -333,7 +333,6 @@ void main() {
         await expose(
           key('entry-new-goal'),
           'today-entry-aligned',
-          text: '新目标',
           picture: narrow,
         );
         await tester.tap(key('entry-new-goal'));

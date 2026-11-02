@@ -123,7 +123,10 @@ class _XyNavBarState extends State<XyNavBar> {
     return AppBar(
       title: Text(widget.title),
       toolbarHeight: widget.height,
-      actions: [...?widget.actions, const SizedBox(width: 4)],
+      // Flush with whatever page it sits on (the editor's paper is lighter
+      // than the app ground) until content scrolls beneath it.
+      backgroundColor: _scrolled ? context.xy.bar : Colors.transparent,
+      actions: [...?widget.actions, const SizedBox(width: 12)],
       shape: Border(
         bottom: BorderSide(
           color: _scrolled ? context.xy.line : Colors.transparent,
@@ -337,36 +340,46 @@ class SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 26, 0, 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: Wrap(
-              spacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.end,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (count != null)
-                  Text(
-                    '$count',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: context.xy.muted,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-              ],
+    final heading = Wrap(
+      spacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.end,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        if (count != null)
+          Text(
+            '$count',
+            style: theme.textTheme.titleLarge?.copyWith(
+              color: context.xy.muted,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
-          ?trailing,
-        ],
-      ),
+      ],
+    );
+    // C54: at large text sizes a trailing action beside the title squeezes
+    // it to one character per line, so the action drops below the title.
+    final stacked =
+        trailing != null && MediaQuery.textScalerOf(context).scale(20) > 34;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 26, 0, 8),
+      child: stacked
+          ? Column(
+              key: const ValueKey('section-label-stacked'),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [heading, trailing!],
+            )
+          // Centred, so a 44pt-tall trailing button lines up with the title.
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: heading),
+                ?trailing,
+              ],
+            ),
     );
   }
 }
@@ -406,47 +419,68 @@ class NoticeBanner extends StatelessWidget {
         scheme.onErrorContainer,
       ),
     };
+    // C41: keep the message width when an action uses large text.
+    final stackedAction =
+        action != null &&
+        onAction != null &&
+        MediaQuery.textScalerOf(context).scale(14) > 22;
+    final button = action != null && onAction != null
+        ? TextButton(
+            key: actionKey,
+            onPressed: onAction,
+            style: TextButton.styleFrom(
+              minimumSize: stackedAction ? const Size(44, 44) : null,
+              foregroundColor: accent,
+              textStyle: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            child: Text(action!),
+          )
+        : null;
+    final content = Row(
+      children: [
+        Icon(
+          icon ??
+              switch (tone) {
+                NoticeTone.info => CupertinoIcons.info_circle,
+                NoticeTone.warning => CupertinoIcons.bell_slash,
+                NoticeTone.error => CupertinoIcons.exclamationmark_circle,
+              },
+          size: 20,
+          color: accent,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            message,
+            style: theme.textTheme.bodyMedium?.copyWith(color: foreground),
+          ),
+        ),
+        if (button != null && !stackedAction)
+          button
+        else
+          const SizedBox(width: 8),
+      ],
+    );
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(xyButtonRadius),
       ),
-      child: Row(
-        children: [
-          Icon(
-            icon ??
-                switch (tone) {
-                  NoticeTone.info => CupertinoIcons.info_circle,
-                  NoticeTone.warning => CupertinoIcons.bell_slash,
-                  NoticeTone.error => CupertinoIcons.exclamationmark_circle,
-                },
-            size: 20,
-            color: accent,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: theme.textTheme.bodyMedium?.copyWith(color: foreground),
-            ),
-          ),
-          if (action != null && onAction != null)
-            TextButton(
-              key: actionKey,
-              onPressed: onAction,
-              style: TextButton.styleFrom(
-                foregroundColor: accent,
-                textStyle: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+      child: stackedAction
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                content,
+                Padding(
+                  padding: const EdgeInsets.only(left: 30),
+                  child: Align(alignment: Alignment.centerLeft, child: button),
                 ),
-              ),
-              child: Text(action!),
+              ],
             )
-          else
-            const SizedBox(width: 8),
-        ],
-      ),
+          : content,
     );
   }
 }
@@ -514,7 +548,12 @@ class TabHeader extends StatelessWidget {
             padding: const EdgeInsets.only(right: 12),
             child: Semantics(
               header: true,
-              child: Text(title, style: theme.textTheme.displaySmall),
+              // Large titles grow with text size up to 1.6x; the content
+              // below carries the full size.
+              child: MediaQuery.withClampedTextScaling(
+                maxScaleFactor: 1.6,
+                child: Text(title, style: theme.textTheme.displaySmall),
+              ),
             ),
           ),
           if (subtitle case final subtitle?)
@@ -712,15 +751,15 @@ class XyIconTile extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: 30,
-    height: 30,
-    decoration: BoxDecoration(
-      color: color,
-      borderRadius: BorderRadius.circular(7),
-    ),
-    child: Icon(icon, size: 18, color: Colors.white),
-  );
+  Widget build(BuildContext context) {
+    // 雾青纸感: no coloured tiles. A plain glyph in the given colour, sized to
+    // the same 30pt slot so rows keep their alignment.
+    return SizedBox(
+      width: 30,
+      height: 30,
+      child: Center(child: Icon(icon, size: 21, color: color)),
+    );
+  }
 }
 
 /// A dialog button: a native iOS action on Apple devices.

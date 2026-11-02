@@ -10,6 +10,7 @@ import '../../../app/theme.dart';
 import '../../../shared/local_date.dart';
 import '../../../shared/local_identity_boundary.dart';
 import '../../../shared/presentation.dart';
+import '../../../shared/ui/today_sky.dart';
 import '../../assistant/assistant_providers.dart';
 import '../../assistant/data/assistant_service.dart';
 import '../../assistant/presentation/assistant_settings_page.dart';
@@ -365,6 +366,8 @@ class _JournalEditorPageState extends ConsumerState<JournalEditorPage> {
           if (!didPop) _leave();
         },
         child: Scaffold(
+          // A lighter sheet of paper than the app ground.
+          backgroundColor: context.xy.bar,
           resizeToAvoidBottomInset: !widget.sheet,
           appBar: pageAppBar(
             context,
@@ -372,18 +375,34 @@ class _JournalEditorPageState extends ConsumerState<JournalEditorPage> {
             actions: [
               Tooltip(
                 message: '保存$_label',
-                child: TextButton(
-                  key: const ValueKey('save-journal'),
-                  onPressed: enabled
-                      ? () async {
-                          if (await controller.save() && mounted) {
-                            await _leave();
+                // A fixed bar: the pill grows with text size only up to 1.6x,
+                // so it never squeezes the page title away.
+                child: MediaQuery.withClampedTextScaling(
+                  maxScaleFactor: 1.6,
+                  child: TextButton(
+                    key: const ValueKey('save-journal'),
+                    style: TextButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                      disabledBackgroundColor: context.xy.fill,
+                      disabledForegroundColor: context.xy.faint,
+                      minimumSize: const Size(64, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      tapTargetSize: MaterialTapTargetSize.padded,
+                    ),
+                    onPressed: enabled
+                        ? () async {
+                            if (await controller.save() && mounted) {
+                              // Kept: a small star rises as the page closes.
+                              showWishRise(this.context);
+                              await _leave();
+                            }
                           }
-                        }
-                      : null,
-                  child: const Text(
-                    '完成',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                        : null,
+                    child: const Text(
+                      '完成',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ),
               ),
@@ -555,11 +574,9 @@ class _JournalEditorPageState extends ConsumerState<JournalEditorPage> {
                                             .textTheme
                                             .bodyLarge
                                             ?.copyWith(
-                                              height:
-                                                  widget.kind ==
-                                                      JournalKind.diary
-                                                  ? 1.7
-                                                  : 1.5,
+                                              fontFamily: xySerif,
+                                              fontSize: 18,
+                                              height: 1.85,
                                             ),
                                         decoration: InputDecoration(
                                           filled: false,
@@ -573,9 +590,10 @@ class _JournalEditorPageState extends ConsumerState<JournalEditorPage> {
                                           hintText:
                                               widget.kind ==
                                                   JournalKind.quickNote
-                                              ? '记下此刻的想法…'
-                                              : '今天，想留下什么？',
+                                              ? '此刻在想什么……'
+                                              : '今天，想留下些什么？',
                                           hintStyle: TextStyle(
+                                            fontFamily: xySerif,
                                             color: context.xy.faint,
                                           ),
                                           errorText: separateLengthError
@@ -853,28 +871,18 @@ class _EditorHeader extends StatelessWidget {
     final xy = context.xy;
     final statusColor = failed ? theme.colorScheme.error : xy.muted;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 14),
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(journalDayLabel(day), style: theme.textTheme.headlineMedium),
+          const SizedBox(height: 4),
           Text(
             '${weekdayLabels[day.weekday - 1]} · '
             '${kind == JournalKind.diary ? '日记' : '随手记'}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: kind == JournalKind.diary
-                  ? theme.colorScheme.primary
-                  : journalNoteTint(context),
-              fontWeight: FontWeight.w600,
-            ),
+            style: theme.textTheme.bodySmall?.copyWith(color: xy.muted),
           ),
-          const SizedBox(height: 2),
-          Text(
-            journalDayLabel(day),
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Semantics(
             liveRegion: true,
             child: Row(
@@ -905,19 +913,18 @@ class _EditorHeader extends StatelessWidget {
   }
 }
 
-/// The white writing sheet.
+/// The writing area. 雾青纸感: the page itself is the paper, so there is no
+/// box; only a little air around the words.
 class _Paper extends StatelessWidget {
   const _Paper({required this.builder});
 
   final LayoutWidgetBuilder builder;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-    decoration: BoxDecoration(
-      color: context.xy.card,
-      borderRadius: BorderRadius.circular(xyCardRadius),
-    ),
+  Widget build(BuildContext context) => Padding(
+    // The same 18pt measure the old sheet had, so long lines, the counter
+    // and the length error keep their tested widths at every text size.
+    padding: const EdgeInsets.fromLTRB(18, 6, 18, 18),
     child: LayoutBuilder(builder: builder),
   );
 }
@@ -1019,35 +1026,34 @@ class _AiStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 雾青纸感: one quiet line in the margin, not a tinted strip over the
+    // page. Busy and applied states keep the accent; "not enabled" is muted.
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
-    final dark = theme.brightness == Brightness.dark;
+    final quiet = !busy && textKey == null;
+    final color = quiet ? context.xy.muted : primary;
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(left: 18, right: 4),
       constraints: const BoxConstraints(minHeight: 44),
-      decoration: BoxDecoration(
-        color: primary.withValues(alpha: dark ? 0.18 : 0.08),
-        borderRadius: BorderRadius.circular(8),
-      ),
       child: Row(
         children: [
           if (busy)
-            XyActivity(radius: 8, color: primary)
+            XyActivity(radius: 7, color: primary)
           else
-            Icon(CupertinoIcons.sparkles, size: 16, color: primary),
-          const SizedBox(width: 8),
+            Icon(CupertinoIcons.sparkles, size: 14, color: color),
+          const SizedBox(width: 6),
           Expanded(
             child: Text(
               text,
               key: textKey,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: primary,
-                fontWeight: FontWeight.w500,
-              ),
+              style: theme.textTheme.bodySmall?.copyWith(color: color),
             ),
           ),
-          ?action,
+          IconTheme.merge(
+            data: IconThemeData(size: 18, color: context.xy.faint),
+            child: action ?? const SizedBox.shrink(),
+          ),
         ],
       ),
     );

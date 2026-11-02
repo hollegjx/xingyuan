@@ -28,6 +28,7 @@ class SettingsContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final permissions = ref.watch(notificationAccessProvider);
     final xy = context.xy;
+    final accent = Theme.of(context).colorScheme.primary;
     final chevron = Icon(
       CupertinoIcons.chevron_right,
       size: 16,
@@ -41,12 +42,9 @@ class SettingsContent extends ConsumerWidget {
           margin: const EdgeInsets.only(top: 12),
           children: [
             ListTile(
-              leading: const XyIconTile(
-                CupertinoIcons.sparkles,
-                color: Color(0xFF5856D6),
-              ),
+              leading: XyIconTile(CupertinoIcons.sparkles, color: accent),
               title: const Text('AI 设置'),
-              subtitle: const Text('访问凭证、发送范围和记忆'),
+              subtitle: const Text('连接、发送范围和记忆'),
               trailing: chevron,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
@@ -59,13 +57,10 @@ class SettingsContent extends ConsumerWidget {
         ),
         XyGroup(
           header: '提醒与通知',
-          footer: '仅已预排的提醒会触发。打开 App 时补排，长期不打开可能耗尽。',
+          footer: '提醒会提前排好。很久不打开星愿，排好的提醒可能会用完；打开一次就会补上。',
           children: [
             ListTile(
-              leading: const XyIconTile(
-                CupertinoIcons.bell_fill,
-                color: Color(0xFFFF3B30),
-              ),
+              leading: XyIconTile(CupertinoIcons.bell, color: accent),
               title: const Text('系统通知'),
               subtitle: permissions.when(
                 loading: () => const Text('正在读取通知权限'),
@@ -132,16 +127,16 @@ class SettingsContent extends ConsumerWidget {
             ),
           ],
         ),
-        const XyGroup(
+        XyGroup(
           header: '本地记录',
-          footer: '目标与打卡保存在这台设备。当前没有云端同步；卸载 App 可能丢失记录。',
+          footer: '目标和打卡都保存在这台手机上，暂时没有云端备份。删除星愿会一并删除这些记录。',
           children: [
             ListTile(
               leading: XyIconTile(
                 CupertinoIcons.device_phone_portrait,
-                color: Color(0xFF8E8E93),
+                color: xy.muted,
               ),
-              title: Text('保存在本机'),
+              title: const Text('保存在本机'),
             ),
           ],
         ),

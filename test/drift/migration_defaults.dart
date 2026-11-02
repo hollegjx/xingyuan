@@ -5,7 +5,11 @@ List<Map<String, Object?>> withAgentMigrationDefaults(
 ) => [
   for (final row in rows)
     {
-      if (table == 'assistant_settings') 'agent_enabled': 1,
+      if (table == 'assistant_settings') ...{
+        'agent_enabled': 1,
+        'read_journal_on_request': 1,
+        'settings_revision': 0,
+      },
       if (table == 'assistant_messages' || table == 'plan_proposals')
         'agent_metadata': null,
       ...row,
